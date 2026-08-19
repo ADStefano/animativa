@@ -4,91 +4,70 @@ import {
   User, 
   Mail, 
   Lock, 
-  Shield, 
   Check, 
   AlertCircle, 
-  Plus, 
-  Calendar, 
-  Heart, 
   LogOut, 
   Save, 
   ArrowLeft,
-  Briefcase
+  Heart,
+  Calendar,
+  Briefcase,
+  Plus,
+  Loader2,
+  Building,
+  HandHeart
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
-import { getAuthUser, setAuthUser, logoutUser, subscribeAuthChange, UserProfile } from "../utils/auth";
-
-const ALL_INITIATIVES = [
-  "Vozes da Periferia",
-  "Sementes do Amanhã",
-  "Eco-Ação",
-  "Saúde em Movimento",
-  "Tecnologia Social",
-  "Arte Solidária",
-  "Recicla Já",
-  "Sorriso de Criança"
-];
+import { useAuth } from "../contexts/AuthContext";
+import { supabase } from "../lib/supabase";
 
 export default function Perfil() {
   const navigate = useNavigate();
-  const [user, setUser] = useState<UserProfile | null>(null);
+  const { user, profile, signOut, refreshProfile } = useAuth();
   
   // Form states
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("••••••••");
-  const [twoFactor, setTwoFactor] = useState(false);
-  const [selectedInitiatives, setSelectedInitiatives] = useState<string[]>([]);
-  
-  // New event history states
-  const [newEventTitle, setNewEventTitle] = useState("");
-  const [newEventDate, setNewEventDate] = useState("");
-  const [newEventRole, setNewEventRole] = useState("Voluntário");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [isVolunteer, setIsVolunteer] = useState<boolean | null>(null);
+  const [userInitiatives, setUserInitiatives] = useState<any[]>([]);
 
   const [notif, setNotif] = useState({ show: false, message: "", type: "success" });
 
   useEffect(() => {
-    // Initial fetch
-    const current = getAuthUser();
-    setUser(current);
-    if (current) {
-      setName(current.name);
-      setEmail(current.email);
-      setTwoFactor(!!current.twoFactorEnabled);
-      setSelectedInitiatives(current.initiatives || []);
+    if (user) {
+      setName(profile?.nome || user.user_metadata?.nome || user.email?.split('@')[0] || "");
+      setEmail(user.email || "");
+
+      // Consulta se o usuário possui cadastro como voluntário na tabela de domínio
+      checkVolunteerAndInitiatives();
     }
+  }, [user, profile]);
 
-    // Subscribe to any external updates
-    const unsubscribe = subscribeAuthChange((updated) => {
-      setUser(updated);
-      if (updated) {
-        setName(updated.name);
-        setEmail(updated.email);
-        setTwoFactor(!!updated.twoFactorEnabled);
-        setSelectedInitiatives(updated.initiatives || []);
-      }
-    });
+  const checkVolunteerAndInitiatives = async () => {
+    if (!user) return;
+    try {
+      // 1. Checa voluntário
+      const { data: volData } = await supabase
+        .from('voluntario')
+        .select('id, nome, data_cadastro, habilidades')
+        .eq('email', user.email)
+        .maybeSingle();
 
-    return unsubscribe;
-  }, []);
+      setIsVolunteer(!!volData);
 
-  if (!user || !user.isLoggedIn) {
-    return (
-      <div className="min-h-screen bg-brand-purple flex flex-col items-center justify-center p-6 text-center">
-        <div className="w-16 h-16 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center mb-6">
-          <AlertCircle className="w-8 h-8 text-red-400" />
-        </div>
-        <h2 className="text-2xl font-black uppercase tracking-tighter mb-2">Acesso Restrito</h2>
-        <p className="text-sm text-white/60 max-w-sm mb-8">Você precisa estar conectado ao sistema para acessar a sua área de perfil.</p>
-        <Link 
-          to="/cadastro" 
-          className="px-8 py-4 bg-brand-orange text-white rounded-full font-black uppercase tracking-widest text-xs hover:bg-white hover:text-brand-purple transition-all"
-        >
-          Ir para Login / Cadastro
-        </Link>
-      </div>
-    );
-  }
+      // 2. Checa iniciativas cadastradas
+      const { data: iniData } = await supabase
+        .from('iniciativa')
+        .select('id, nome, setor_sociedade, cidade, uf')
+        .eq('email', user.email);
+
+      setUserInitiatives(iniData || []);
+    } catch (err) {
+      console.warn("Erro ao buscar vínculos do usuário:", err);
+    }
+  };
 
   const triggerNotif = (message: string, type = "success") => {
     setNotif({ show: true, message, type });
@@ -97,70 +76,61 @@ export default function Perfil() {
     }, 4000);
   };
 
-  const handleSaveLoginInfo = (e: React.FormEvent) => {
+  const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name || !email) {
-      triggerNotif("Nome e E-mail são obrigatórios.", "error");
-      return;
-    }
-    
-    const updatedUser: UserProfile = {
-      ...user,
-      name,
-      email,
-      twoFactorEnabled: twoFactor
-    };
-    setAuthUser(updatedUser);
-    triggerNotif("Informações de login atualizadas com sucesso!");
-  };
-
-  const handleToggleInitiative = (iniName: string) => {
-    let updated: string[];
-    if (selectedInitiatives.includes(iniName)) {
-      updated = selectedInitiatives.filter(i => i !== iniName);
-    } else {
-      updated = [...selectedInitiatives, iniName];
-    }
-    setSelectedInitiatives(updated);
-    
-    const updatedUser: UserProfile = {
-      ...user,
-      initiatives: updated
-    };
-    setAuthUser(updatedUser);
-    triggerNotif(`Iniciativas atualizadas!`);
-  };
-
-  const handleAddEvent = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newEventTitle || !newEventDate) {
-      triggerNotif("Preencha o título e a data do evento.", "error");
+    if (!name.trim()) {
+      triggerNotif("O nome é obrigatório.", "error");
       return;
     }
 
-    const newEvent = {
-      title: newEventTitle,
-      date: newEventDate,
-      role: newEventRole
-    };
+    setLoading(true);
+    try {
+      // Atualiza metadados no Supabase Auth
+      const { error: authUpdateError } = await supabase.auth.updateUser({
+        data: { nome: name.trim() }
+      });
 
-    const updatedEvents = [newEvent, ...(user.events || [])];
-    const updatedUser: UserProfile = {
-      ...user,
-      events: updatedEvents
-    };
+      if (authUpdateError) {
+        throw authUpdateError;
+      }
 
-    setAuthUser(updatedUser);
-    setNewEventTitle("");
-    setNewEventDate("");
-    setNewEventRole("Voluntário");
-    triggerNotif("Participação em evento registrada com sucesso!");
+      // Atualiza na tabela usuario se existir
+      if (profile?.id) {
+        await supabase
+          .from('usuario')
+          .update({ nome: name.trim(), updated_at: new Date().toISOString() })
+          .eq('id', profile.id);
+      }
+
+      // Se informou nova senha
+      if (password.trim().length >= 6) {
+        const { error: pwdError } = await supabase.auth.updateUser({
+          password: password.trim()
+        });
+        if (pwdError) throw pwdError;
+        setPassword("");
+      }
+
+      await refreshProfile();
+      triggerNotif("Perfil atualizado com sucesso no Supabase!");
+    } catch (err: any) {
+      triggerNotif(err?.message || "Erro ao salvar alterações.", "error");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleLogout = () => {
-    logoutUser();
-    navigate("/");
+  const handleLogout = async () => {
+    try {
+      await signOut();
+      navigate("/");
+    } catch (err) {
+      navigate("/");
+    }
   };
+
+  const displayName = profile?.nome || name || user?.email?.split('@')[0] || "Usuário";
+  const avatarUrl = profile?.foto_perfil || user?.user_metadata?.avatar_url || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=150";
 
   return (
     <div className="py-24 relative overflow-hidden">
@@ -179,13 +149,14 @@ export default function Perfil() {
               <ArrowLeft className="w-4 h-4" />
               Voltar ao Início
             </Link>
-            <h1 className="text-4xl md:text-6xl font-black uppercase tracking-tighter">Área do Voluntário</h1>
-            <p className="text-white/60 text-sm mt-2">Gerencie suas credenciais, causas apoiadas e portfólio de impacto.</p>
+            <h1 className="text-4xl md:text-6xl font-black uppercase tracking-tighter">Área do Usuário</h1>
+            <p className="text-white/60 text-sm mt-2">Gerencie sua conta na Animativa, suas iniciativas e cadastros de voluntariado.</p>
           </div>
           
           <button 
+            type="button"
             onClick={handleLogout}
-            className="flex items-center gap-2 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 px-6 py-3 rounded-2xl text-red-400 text-xs font-black uppercase tracking-widest transition-all"
+            className="flex items-center gap-2 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 px-6 py-3 rounded-2xl text-red-400 text-xs font-black uppercase tracking-widest transition-all cursor-pointer"
           >
             <LogOut className="w-4 h-4" />
             Sair do Sistema
@@ -205,7 +176,7 @@ export default function Perfil() {
                   : "bg-red-500/10 border-red-500/20 text-red-400"
               }`}
             >
-              <Check className="w-5 h-5 shrink-0" />
+              {notif.type === "success" ? <Check className="w-5 h-5 shrink-0" /> : <AlertCircle className="w-5 h-5 shrink-0" />}
               <span>{notif.message}</span>
             </motion.div>
           )}
@@ -219,8 +190,8 @@ export default function Perfil() {
             <div className="bg-white/5 border border-white/10 p-8 rounded-[3rem] relative overflow-hidden flex items-center gap-6">
               <div className="relative">
                 <img 
-                  src={user.avatar || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=150"} 
-                  alt={user.name} 
+                  src={avatarUrl} 
+                  alt={displayName} 
                   className="w-20 h-20 rounded-full object-cover border-2 border-brand-orange shadow-lg"
                   referrerPolicy="no-referrer"
                 />
@@ -229,19 +200,19 @@ export default function Perfil() {
                 </div>
               </div>
               <div>
-                <span className="text-[10px] font-black uppercase tracking-widest text-brand-orange">Membro Ativo</span>
-                <h3 className="text-2xl font-black uppercase tracking-tighter text-white mt-1">{user.name || "Sem Nome"}</h3>
-                <p className="text-xs text-white/50">{user.email}</p>
+                <span className="text-[10px] font-black uppercase tracking-widest text-brand-orange">Conta Supabase Autenticada</span>
+                <h3 className="text-2xl font-black uppercase tracking-tighter text-white mt-1">{displayName}</h3>
+                <p className="text-xs text-white/50">{user?.email}</p>
               </div>
             </div>
 
-            {/* Login Credentials Edit Form */}
+            {/* Edit Profile Form */}
             <div className="bg-white/5 border border-white/10 p-8 md:p-10 rounded-[3rem]">
               <h2 className="text-xl font-black uppercase tracking-tighter mb-6 flex items-center gap-3">
-                <Lock className="w-5 h-5 text-brand-orange" />
-                Informações de Login
+                <User className="w-5 h-5 text-brand-orange" />
+                Dados do Perfil
               </h2>
-              <form onSubmit={handleSaveLoginInfo} className="space-y-6">
+              <form onSubmit={handleSaveProfile} className="space-y-5">
                 <div className="space-y-2">
                   <label className="text-[10px] font-black uppercase tracking-widest text-white/40 ml-4">Nome Completo</label>
                   <div className="relative">
@@ -251,197 +222,149 @@ export default function Perfil() {
                       value={name}
                       onChange={(e) => setName(e.target.value)}
                       required
-                      className="w-full bg-white/5 border border-white/10 rounded-2xl pl-12 pr-6 py-4 focus:outline-none focus:border-brand-orange transition-colors text-sm" 
+                      className="w-full bg-white/5 border border-white/10 rounded-2xl pl-12 pr-6 py-4 focus:outline-none focus:border-brand-orange transition-colors text-sm text-white" 
                     />
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-white/40 ml-4">E-mail de Login</label>
+                  <label className="text-[10px] font-black uppercase tracking-widest text-white/40 ml-4">E-mail Cadastrado</label>
                   <div className="relative">
                     <Mail className="absolute left-5 top-1/2 -translate-y-1/2 text-white/40 w-4 h-4" />
                     <input 
                       type="email" 
                       value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      required
-                      className="w-full bg-white/5 border border-white/10 rounded-2xl pl-12 pr-6 py-4 focus:outline-none focus:border-brand-orange transition-colors text-sm" 
+                      disabled
+                      className="w-full bg-white/5 border border-white/10 rounded-2xl pl-12 pr-6 py-4 text-sm text-white/50 cursor-not-allowed" 
                     />
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-white/40 ml-4">Senha</label>
+                  <label className="text-[10px] font-black uppercase tracking-widest text-white/40 ml-4">Alterar Senha (Opcional)</label>
                   <div className="relative">
                     <Lock className="absolute left-5 top-1/2 -translate-y-1/2 text-white/40 w-4 h-4" />
                     <input 
                       type="password" 
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      placeholder="Nova senha..."
-                      className="w-full bg-white/5 border border-white/10 rounded-2xl pl-12 pr-6 py-4 focus:outline-none focus:border-brand-orange transition-colors text-sm" 
+                      placeholder="Deixe em branco para manter a atual"
+                      className="w-full bg-white/5 border border-white/10 rounded-2xl pl-12 pr-6 py-4 focus:outline-none focus:border-brand-orange transition-colors text-sm text-white" 
                     />
                   </div>
                 </div>
 
-                <div className="p-6 bg-white/5 border border-white/5 rounded-2xl flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <Shield className="w-5 h-5 text-brand-blue" />
-                    <div>
-                      <p className="text-xs font-black uppercase tracking-widest">Segurança em 2 Etapas</p>
-                      <p className="text-[9px] text-white/40">Código temporário enviado por e-mail</p>
-                    </div>
-                  </div>
-                  <button 
-                    type="button"
-                    onClick={() => setTwoFactor(!twoFactor)}
-                    className={`w-12 h-6 rounded-full p-1 transition-colors duration-300 ${twoFactor ? 'bg-brand-orange' : 'bg-white/10'}`}
-                  >
-                    <div className={`w-4 h-4 rounded-full bg-white transition-transform duration-300 transform ${twoFactor ? 'translate-x-6' : 'translate-x-0'}`} />
-                  </button>
-                </div>
-
                 <button 
                   type="submit"
-                  className="w-full py-4.5 bg-brand-orange hover:bg-white hover:text-brand-purple rounded-2xl font-black uppercase tracking-widest text-[10px] transition-all flex items-center justify-center gap-2"
+                  disabled={loading}
+                  className="w-full py-4.5 bg-brand-orange hover:bg-white hover:text-brand-purple rounded-2xl font-black uppercase tracking-widest text-xs transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
                 >
-                  <Save className="w-4 h-4" />
+                  {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                   Salvar Alterações
                 </button>
               </form>
             </div>
           </div>
 
-          {/* Column Right (Volunteer Initiatives & Event History Register) */}
-          <div className="lg:col-span-7 space-y-12">
+          {/* Column Right (Diferenciação: Ações de Voluntário & Ações de Iniciativa) */}
+          <div className="lg:col-span-7 space-y-8">
             
-            {/* Initiatives Selection Section */}
+            {/* Bloco 1: Status de Voluntariado */}
             <section className="bg-white/5 border border-white/10 p-8 md:p-10 rounded-[3rem]">
-              <h2 className="text-xl font-black uppercase tracking-tighter mb-2 flex items-center gap-3">
-                <Heart className="w-5 h-5 text-brand-orange" />
-                Iniciativas de Apoio
-              </h2>
-              <p className="text-xs text-white/50 mb-6">Selecione quais causas você atua ou gostaria de atuar como voluntário.</p>
-              
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {ALL_INITIATIVES.map((ini) => {
-                  const isChecked = selectedInitiatives.includes(ini);
-                  return (
-                    <button
-                      key={ini}
-                      onClick={() => handleToggleInitiative(ini)}
-                      className={`p-4 rounded-2xl border text-left transition-all flex items-center justify-between group ${
-                        isChecked 
-                          ? "bg-brand-orange/10 border-brand-orange text-white" 
-                          : "bg-white/[0.02] border-white/5 text-white/60 hover:border-white/20 hover:text-white"
-                      }`}
-                    >
-                      <span className="text-xs font-black uppercase tracking-wider">{ini}</span>
-                      <div className={`w-5 h-5 rounded-md border flex items-center justify-center transition-colors ${
-                        isChecked ? "bg-brand-orange border-brand-orange" : "border-white/20 group-hover:border-white/40"
-                      }`}>
-                        {isChecked && <Check className="w-3 h-3 text-white" />}
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </section>
-
-            {/* Event History Section */}
-            <section className="bg-white/5 border border-white/10 p-8 md:p-10 rounded-[3rem] space-y-8">
-              <div>
-                <h2 className="text-xl font-black uppercase tracking-tighter mb-2 flex items-center gap-3">
-                  <Calendar className="w-5 h-5 text-brand-blue" />
-                  Histórico de Eventos
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-black uppercase tracking-tighter flex items-center gap-3">
+                  <HandHeart className="w-5 h-5 text-brand-orange" />
+                  Cadastro de Voluntário
                 </h2>
-                <p className="text-xs text-white/50">Registre sua participação nos eventos comunitários da Animativa para montar seu portfólio.</p>
-              </div>
-
-              {/* Form to Register Event Participation */}
-              <form onSubmit={handleAddEvent} className="p-6 bg-white/[0.02] border border-white/5 rounded-2xl space-y-6">
-                <span className="text-[9px] font-black uppercase tracking-widest text-brand-blue block">Registrar Nova Participação</span>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <label className="text-[9px] font-black uppercase tracking-widest text-white/40">Título do Evento</label>
-                    <input 
-                      type="text" 
-                      required
-                      value={newEventTitle}
-                      onChange={(e) => setNewEventTitle(e.target.value)}
-                      placeholder="Ex: Mutirão de Reflorestamento"
-                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-brand-blue transition-colors text-xs" 
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[9px] font-black uppercase tracking-widest text-white/40">Data de Participação</label>
-                    <input 
-                      type="text" 
-                      required
-                      value={newEventDate}
-                      onChange={(e) => setNewEventDate(e.target.value)}
-                      placeholder="Ex: 10 Mai 2026"
-                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-brand-blue transition-colors text-xs" 
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-end">
-                  <div className="space-y-2">
-                    <label className="text-[9px] font-black uppercase tracking-widest text-white/40">Função / Cargo</label>
-                    <select
-                      value={newEventRole}
-                      onChange={(e) => setNewEventRole(e.target.value)}
-                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-brand-blue transition-colors text-xs appearance-none"
-                    >
-                      <option>Voluntário</option>
-                      <option>Facilitador</option>
-                      <option>Organizador</option>
-                      <option>Palestrante</option>
-                      <option>Apoiador</option>
-                    </select>
-                  </div>
-                  
-                  <button 
-                    type="submit"
-                    className="py-3 bg-brand-blue text-white hover:bg-white hover:text-brand-purple rounded-xl font-black uppercase tracking-widest text-[9px] transition-all flex items-center justify-center gap-2"
-                  >
-                    <Plus className="w-4 h-4" />
-                    Adicionar ao Histórico
-                  </button>
-                </div>
-              </form>
-
-              {/* Event History Timeline List */}
-              <div className="space-y-4">
-                <span className="text-[9px] font-black uppercase tracking-widest text-white/40 block">Eventos Registrados</span>
-                
-                {(!user.events || user.events.length === 0) ? (
-                  <p className="text-xs text-white/30 text-center py-8">Nenhum evento registrado ainda. Preencha o formulário acima para adicionar.</p>
+                {isVolunteer ? (
+                  <span className="px-3 py-1 bg-green-500/10 border border-green-500/20 text-green-400 text-[10px] font-black uppercase tracking-widest rounded-full">
+                    Voluntário Ativo
+                  </span>
                 ) : (
-                  <div className="space-y-3">
-                    {user.events.map((evt, idx) => (
-                      <div 
-                        key={idx} 
-                        className="flex items-center justify-between p-5 bg-white/[0.02] border border-white/5 rounded-2xl hover:border-white/10 transition-colors"
-                      >
-                        <div className="flex items-center gap-4">
-                          <div className="w-10 h-10 rounded-xl bg-brand-blue/10 border border-brand-blue/20 flex items-center justify-center text-brand-blue">
-                            <Briefcase className="w-5 h-5" />
-                          </div>
-                          <div>
-                            <h4 className="text-sm font-black uppercase tracking-tighter">{evt.title}</h4>
-                            <p className="text-[9px] font-black uppercase tracking-widest text-white/30 mt-0.5">{evt.date}</p>
-                          </div>
-                        </div>
-                        <span className="text-[9px] font-black uppercase tracking-widest px-3 py-1 bg-white/5 border border-white/10 rounded-full text-brand-orange">{evt.role}</span>
-                      </div>
-                    ))}
-                  </div>
+                  <span className="px-3 py-1 bg-white/5 border border-white/10 text-white/40 text-[10px] font-black uppercase tracking-widest rounded-full">
+                    Não Cadastrado
+                  </span>
                 )}
               </div>
+              
+              <p className="text-xs text-white/60 mb-6 leading-relaxed">
+                {isVolunteer 
+                  ? "Você já possui cadastro como voluntário na tabela de voluntários da Animativa."
+                  : "Criar uma conta na plataforma não o torna automaticamente um voluntário. Se deseja atuar nos projetos e causas sociais, complete seu cadastro de voluntário."}
+              </p>
 
+              {isVolunteer ? (
+                <Link
+                  to="/voluntarios"
+                  className="inline-flex items-center gap-2 px-6 py-3.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl text-xs font-black uppercase tracking-widest text-white transition-all"
+                >
+                  Ver / Atualizar Dados de Voluntário
+                </Link>
+              ) : (
+                <Link
+                  to="/voluntarios"
+                  className="inline-flex items-center gap-2 px-6 py-3.5 bg-brand-orange hover:bg-white hover:text-brand-purple rounded-2xl text-xs font-black uppercase tracking-widest text-white transition-all shadow-lg"
+                >
+                  <Plus className="w-4 h-4" />
+                  Quero ser Voluntário
+                </Link>
+              )}
+            </section>
+
+            {/* Bloco 2: Minhas Iniciativas Cadastradas */}
+            <section className="bg-white/5 border border-white/10 p-8 md:p-10 rounded-[3rem] space-y-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-xl font-black uppercase tracking-tighter flex items-center gap-3">
+                    <Building className="w-5 h-5 text-brand-blue" />
+                    Minhas Iniciativas
+                  </h2>
+                  <p className="text-xs text-white/50 mt-1">Iniciativas e projetos cadastrados por você na plataforma.</p>
+                </div>
+
+                <Link 
+                  to="/iniciativas"
+                  className="px-4 py-2.5 bg-brand-blue/10 hover:bg-brand-blue/20 border border-brand-blue/20 rounded-xl text-brand-blue text-[10px] font-black uppercase tracking-widest transition-colors flex items-center gap-1.5"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  Nova Iniciativa
+                </Link>
+              </div>
+
+              {userInitiatives.length === 0 ? (
+                <div className="p-8 border border-dashed border-white/10 rounded-2xl text-center space-y-3">
+                  <Building className="w-8 h-8 text-white/20 mx-auto" />
+                  <p className="text-xs text-white/40">Você ainda não cadastrou nenhuma iniciativa social.</p>
+                  <Link 
+                    to="/iniciativas"
+                    className="inline-block text-xs font-bold text-brand-orange hover:underline uppercase tracking-wider"
+                  >
+                    Cadastrar Minha Primeira Iniciativa &rarr;
+                  </Link>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {userInitiatives.map((ini) => (
+                    <div 
+                      key={ini.id} 
+                      className="p-5 bg-white/[0.02] border border-white/5 rounded-2xl flex items-center justify-between hover:border-white/10 transition-colors"
+                    >
+                      <div>
+                        <h4 className="text-sm font-black uppercase tracking-tighter text-white">{ini.nome}</h4>
+                        <p className="text-[10px] text-white/40 uppercase tracking-wider mt-0.5">
+                          {ini.setor_sociedade || "Impacto Social"} • {ini.cidade ? `${ini.cidade} - ${ini.uf}` : "Nacional"}
+                        </p>
+                      </div>
+                      <Link 
+                        to={`/projetos/${ini.id}`}
+                        className="text-xs font-bold text-brand-blue hover:underline uppercase tracking-wider"
+                      >
+                        Ver Detalhes
+                      </Link>
+                    </div>
+                  ))}
+                </div>
+              )}
             </section>
 
           </div>

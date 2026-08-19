@@ -1,25 +1,40 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { ArrowRight, Shield, ShieldCheck, Mail, Lock, User, Chrome, Facebook, Check, AlertCircle, ArrowLeft } from "lucide-react";
+import { ArrowRight, Mail, Lock, User, Chrome, Facebook, Check, AlertCircle, Loader2 } from "lucide-react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
-import { loginSimulated } from "../utils/auth";
+import { useAuth } from "../contexts/AuthContext";
 
 export default function Cadastro() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { user, signUp, signIn, signInWithOAuth, isConfigured } = useAuth();
   
   // Tab control: "cadastro" or "login"
   const [mode, setMode] = useState<"cadastro" | "login">("cadastro");
-  const [step, setStep] = useState(1); // 1: Form, 2: 2FA Setup, 3: Success
+  const [step, setStep] = useState(1); // 1: Form, 3: Success
   const [formData, setFormData] = useState({
     name: "",
     email: "",
     password: "",
-    twoFactorCode: "",
+    confirmPassword: "",
   });
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // Detect mode from URL query parameter (?mode=login)
+  // Redireciona se o usuário já estiver logado
+  useEffect(() => {
+    if (user && step !== 3) {
+      // Se já está logado e não está exibindo tela de sucesso, pode ir para perfil
+      const params = new URLSearchParams(location.search);
+      if (params.get("redirect") === "voluntarios") {
+        navigate("/voluntarios");
+      } else if (params.get("redirect") === "iniciativas") {
+        navigate("/iniciativas");
+      }
+    }
+  }, [user, navigate, location, step]);
+
+  // Detect mode from URL query parameter (?mode=login ou ?mode=cadastro)
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const modeParam = params.get("mode");
@@ -28,6 +43,7 @@ export default function Cadastro() {
     } else {
       setMode("cadastro");
     }
+    setError("");
   }, [location]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -35,37 +51,86 @@ export default function Cadastro() {
     setError("");
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setLoading(true);
 
-    if (mode === "login") {
-      if (!formData.email || !formData.password) {
-        setError("Por favor, preencha todos os campos.");
-        return;
+    try {
+      if (mode === "login") {
+        if (!formData.email || !formData.password) {
+          setError("Por favor, preencha seu e-mail e senha.");
+          setLoading(false);
+          return;
+        }
+
+        const { error: signInError } = await signIn(formData.email.trim(), formData.password);
+        if (signInError) {
+          if (signInError.message.includes("Invalid login credentials")) {
+            setError("E-mail ou senha inválidos. Verifique seus dados.");
+          } else {
+            setError(signInError.message || "Erro ao efetuar login.");
+          }
+          setLoading(false);
+          return;
+        }
+
+        setStep(3); // Success
+      } else {
+        // Cadastro
+        if (!formData.name || !formData.email || !formData.password) {
+          setError("Por favor, preencha todos os campos obrigatórios.");
+          setLoading(false);
+          return;
+        }
+
+        if (formData.password.length < 6) {
+          setError("A senha deve conter no mínimo 6 caracteres.");
+          setLoading(false);
+          return;
+        }
+
+        if (formData.confirmPassword && formData.password !== formData.confirmPassword) {
+          setError("As senhas informadas não coincidem.");
+          setLoading(false);
+          return;
+        }
+
+        const { error: signUpError } = await signUp(
+          formData.email.trim(),
+          formData.password,
+          formData.name.trim()
+        );
+
+        if (signUpError) {
+          if (signUpError.message.includes("already registered") || signUpError.message.includes("unique constraint")) {
+            setError("Este e-mail já está cadastrado. Faça login ou use outro e-mail.");
+          } else {
+            setError(signUpError.message || "Erro ao criar conta.");
+          }
+          setLoading(false);
+          return;
+        }
+
+        setStep(3); // Registration success
       }
-      // Log in immediately for simulated auth
-      loginSimulated(formData.name || "Gus Silva", formData.email);
-      setStep(3); // Success
-    } else {
-      if (!formData.name || !formData.email || !formData.password) {
-        setError("Por favor, preencha todos os campos obrigatórios.");
-        return;
-      }
-      // Proceed to 2-step verification for signup
-      setStep(2);
+    } catch (err: any) {
+      setError(err?.message || "Ocorreu um erro inesperado. Tente novamente.");
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleVerify2FA = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData.twoFactorCode || formData.twoFactorCode.length < 6) {
-      setError("Por favor, insira o código de 6 dígitos.");
-      return;
+  const handleOAuthLogin = async (provider: "google" | "facebook") => {
+    setError("");
+    try {
+      const { error: oauthError } = await signInWithOAuth(provider);
+      if (oauthError) {
+        setError(`Erro ao autenticar com ${provider === "google" ? "Google" : "Meta"}: ${oauthError.message}`);
+      }
+    } catch (err: any) {
+      setError(err?.message || `Não foi possível iniciar o login com ${provider}.`);
     }
-    // Set simulated logged in status
-    loginSimulated(formData.name, formData.email);
-    setStep(3); // Registration success
   };
 
   return (
@@ -107,6 +172,7 @@ export default function Cadastro() {
           {step === 1 && (
             <div className="flex bg-white/5 p-1.5 rounded-2xl mb-8">
               <button
+                type="button"
                 onClick={() => { setMode("cadastro"); setError(""); }}
                 className={`flex-1 py-3 text-xs font-black uppercase tracking-widest rounded-xl transition-all ${
                   mode === "cadastro" ? "bg-brand-orange text-white shadow-lg" : "text-white/40 hover:text-white"
@@ -115,6 +181,7 @@ export default function Cadastro() {
                 Criar Conta
               </button>
               <button
+                type="button"
                 onClick={() => { setMode("login"); setError(""); }}
                 className={`flex-1 py-3 text-xs font-black uppercase tracking-widest rounded-xl transition-all ${
                   mode === "login" ? "bg-brand-orange text-white shadow-lg" : "text-white/40 hover:text-white"
@@ -127,15 +194,19 @@ export default function Cadastro() {
 
           <h1 className="text-2xl md:text-3xl font-black uppercase tracking-tighter">
             {step === 1 && (mode === "cadastro" ? "Criar Conta" : "Entrar no Sistema")}
-            {step === 2 && "Segurança em 2 Etapas"}
             {step === 3 && "Bem-vindo!"}
           </h1>
           
           <p className="text-xs text-white/60 mt-2">
-            {step === 1 && (mode === "cadastro" ? "Junte-se à maior rede de impacto social do país" : "Acesse sua conta para gerenciar seu impacto")}
-            {step === 2 && "Configure o segundo fator de segurança para sua conta"}
-            {step === 3 && "Sua conta foi conectada com segurança de nível máximo"}
+            {step === 1 && (mode === "cadastro" ? "Junte-se à rede de impacto social do país" : "Acesse sua conta para gerenciar seu perfil e iniciativas")}
+            {step === 3 && "Sua autenticação foi realizada com sucesso"}
           </p>
+
+          {!isConfigured && (
+            <div className="mt-4 p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-left text-[11px] text-amber-200">
+              ℹ️ <strong>Supabase em Modo Local:</strong> Configure suas variáveis <code>VITE_SUPABASE_URL</code> e <code>VITE_SUPABASE_ANON_KEY</code> no seu arquivo <code>.env</code> para conectar ao seu projeto PostgreSQL do Supabase.
+            </div>
+          )}
         </div>
 
         {error && (
@@ -158,7 +229,7 @@ export default function Cadastro() {
               exit={{ opacity: 0, x: 20 }}
               transition={{ duration: 0.3 }}
             >
-              <form onSubmit={handleSubmit} className="space-y-6">
+              <form onSubmit={handleSubmit} className="space-y-4">
                 {mode === "cadastro" && (
                   <div className="space-y-2">
                     <label className="text-[10px] font-black uppercase tracking-widest text-white/40 ml-4">Nome Completo</label>
@@ -170,8 +241,8 @@ export default function Cadastro() {
                         required
                         value={formData.name}
                         onChange={handleInputChange}
-                        className="w-full bg-white/5 border border-white/10 rounded-2xl pl-12 pr-6 py-4 focus:outline-none focus:border-brand-orange transition-colors text-sm" 
-                        placeholder="Ex: João Silva" 
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl pl-12 pr-6 py-4 focus:outline-none focus:border-brand-orange transition-colors text-sm text-white" 
+                        placeholder="Ex: Maria Santos" 
                       />
                     </div>
                   </div>
@@ -187,7 +258,7 @@ export default function Cadastro() {
                       required
                       value={formData.email}
                       onChange={handleInputChange}
-                      className="w-full bg-white/5 border border-white/10 rounded-2xl pl-12 pr-6 py-4 focus:outline-none focus:border-brand-orange transition-colors text-sm" 
+                      className="w-full bg-white/5 border border-white/10 rounded-2xl pl-12 pr-6 py-4 focus:outline-none focus:border-brand-orange transition-colors text-sm text-white" 
                       placeholder="seuemail@exemplo.com" 
                     />
                   </div>
@@ -203,99 +274,72 @@ export default function Cadastro() {
                       required
                       value={formData.password}
                       onChange={handleInputChange}
-                      className="w-full bg-white/5 border border-white/10 rounded-2xl pl-12 pr-6 py-4 focus:outline-none focus:border-brand-orange transition-colors text-sm" 
-                      placeholder="••••••••" 
+                      className="w-full bg-white/5 border border-white/10 rounded-2xl pl-12 pr-6 py-4 focus:outline-none focus:border-brand-orange transition-colors text-sm text-white" 
+                      placeholder="Mínimo de 6 caracteres" 
                     />
                   </div>
                 </div>
 
+                {mode === "cadastro" && (
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-white/40 ml-4">Confirmar Senha</label>
+                    <div className="relative">
+                      <Lock className="absolute left-5 top-1/2 -translate-y-1/2 text-white/40 w-4 h-4" />
+                      <input 
+                        type="password" 
+                        name="confirmPassword"
+                        required
+                        value={formData.confirmPassword}
+                        onChange={handleInputChange}
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl pl-12 pr-6 py-4 focus:outline-none focus:border-brand-orange transition-colors text-sm text-white" 
+                        placeholder="Repita sua senha" 
+                      />
+                    </div>
+                  </div>
+                )}
+
                 <button 
                   type="submit" 
-                  className="w-full py-5 bg-brand-orange text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-white hover:text-brand-purple transition-all shadow-xl flex items-center justify-center gap-2 transform active:scale-95"
+                  disabled={loading}
+                  className="w-full mt-4 py-5 bg-brand-orange text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-white hover:text-brand-purple transition-all shadow-xl flex items-center justify-center gap-2 transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {mode === "cadastro" ? "Criar Conta" : "Entrar na Conta"}
-                  <ArrowRight className="w-4 h-4" />
+                  {loading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Processando...
+                    </>
+                  ) : (
+                    <>
+                      {mode === "cadastro" ? "Criar Conta" : "Entrar na Conta"}
+                      <ArrowRight className="w-4 h-4" />
+                    </>
+                  )}
                 </button>
               </form>
 
               <div className="relative my-8 text-center">
                 <span className="absolute left-0 top-1/2 -translate-y-1/2 w-full h-[1px] bg-white/10" />
-                <span className="relative bg-brand-purple px-4 text-[10px] font-black uppercase tracking-widest text-white/40">Ou entre diretamente</span>
+                <span className="relative bg-brand-purple px-4 text-[10px] font-black uppercase tracking-widest text-white/40">Ou acesse com</span>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <button 
-                  onClick={() => {
-                    loginSimulated("Gus Silva (Google)", "gus.google@exemplo.com");
-                    setStep(3);
-                  }}
-                  className="flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl py-4 text-xs font-black uppercase tracking-widest transition-colors"
+                  type="button"
+                  onClick={() => handleOAuthLogin("google")}
+                  className="flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl py-4 text-xs font-black uppercase tracking-widest transition-colors cursor-pointer"
                 >
                   <Chrome className="w-4 h-4 text-red-400" />
                   Google
                 </button>
                 <button 
-                  onClick={() => {
-                    loginSimulated("Gus Silva (FB)", "gus.fb@exemplo.com");
-                    setStep(3);
-                  }}
-                  className="flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl py-4 text-xs font-black uppercase tracking-widest transition-colors"
+                  type="button"
+                  onClick={() => handleOAuthLogin("facebook")}
+                  className="flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl py-4 text-xs font-black uppercase tracking-widest transition-colors cursor-pointer"
                 >
                   <Facebook className="w-4 h-4 text-brand-blue" />
-                  Facebook
+                  Meta
                 </button>
               </div>
-            </motion.div>
-          )}
-
-          {step === 2 && (
-            <motion.div
-              key="step2"
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 20 }}
-              transition={{ duration: 0.3 }}
-            >
-              <form onSubmit={handleVerify2FA} className="space-y-6">
-                <div className="bg-white/5 border border-white/10 rounded-2xl p-6 text-center space-y-4">
-                  <div className="w-12 h-12 rounded-full bg-brand-orange/10 flex items-center justify-center mx-auto">
-                    <Shield className="w-6 h-6 text-brand-orange" />
-                  </div>
-                  <p className="text-xs text-white/70">
-                    Enviamos um código de segurança de 6 dígitos para o e-mail <strong className="text-white">{formData.email}</strong>.
-                  </p>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-white/40 ml-4">Código de Verificação</label>
-                  <input 
-                    type="text" 
-                    name="twoFactorCode"
-                    maxLength={6}
-                    required
-                    value={formData.twoFactorCode}
-                    onChange={handleInputChange}
-                    className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-5 focus:outline-none focus:border-brand-orange transition-colors text-center font-bold tracking-[0.5em] text-lg" 
-                    placeholder="000000" 
-                  />
-                </div>
-
-                <button 
-                  type="submit" 
-                  className="w-full py-5 bg-brand-orange text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-white hover:text-brand-purple transition-all shadow-xl flex items-center justify-center gap-2 transform active:scale-95"
-                >
-                  Verificar e Ativar
-                  <ShieldCheck className="w-4 h-4" />
-                </button>
-
-                <button 
-                  type="button"
-                  onClick={() => setStep(1)}
-                  className="w-full text-center text-[10px] font-black uppercase tracking-widest text-white/40 hover:text-white transition-colors py-2"
-                >
-                  Voltar ao Formulário
-                </button>
-              </form>
             </motion.div>
           )}
 
@@ -313,10 +357,10 @@ export default function Cadastro() {
 
               <div className="space-y-2">
                 <h2 className="text-xl font-black uppercase tracking-tighter">
-                  {mode === "cadastro" ? "Cadastro Concluído!" : "Login Concluído!"}
+                  {mode === "cadastro" ? "Conta Criada!" : "Login Efetuado!"}
                 </h2>
                 <p className="text-xs text-white/60">
-                  Olá, <strong className="text-white">{formData.name || "Voluntário"}</strong>. Você foi autenticado com sucesso.
+                  Olá, <strong className="text-white">{formData.name || formData.email || "Usuário"}</strong>. Você está autenticado na Animativa.
                 </p>
               </div>
 
@@ -325,13 +369,13 @@ export default function Cadastro() {
                   to="/perfil" 
                   className="block w-full py-5 bg-brand-orange text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-white hover:text-brand-purple transition-all shadow-xl text-center"
                 >
-                  Ir para Meu Perfil
+                  Acessar Meu Perfil
                 </Link>
                 <Link 
                   to="/" 
                   className="block w-full text-center text-[10px] font-black uppercase tracking-widest text-white/40 hover:text-white transition-colors py-2"
                 >
-                  Ir para a Home Page
+                  Ir para a Home
                 </Link>
               </div>
             </motion.div>

@@ -16,7 +16,7 @@ import {
   Settings
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
-import { getAuthUser, subscribeAuthChange, UserProfile } from "../utils/auth";
+import { useAuth } from "../contexts/AuthContext";
 
 export const LogoSmall = () => {
   const [imgError, setImgError] = useState(false);
@@ -58,19 +58,10 @@ export const LogoSmall = () => {
 export default function Layout({ children }: { children: React.ReactNode }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const location = useLocation();
-  const [user, setUser] = useState<UserProfile>(getAuthUser());
+  const { user, profile } = useAuth();
 
-  useEffect(() => {
-    // Initial fetch
-    setUser(getAuthUser());
-
-    // Subscribe to auth changes
-    const unsubscribe = subscribeAuthChange((updatedUser) => {
-      setUser(updatedUser);
-    });
-
-    return unsubscribe;
-  }, []);
+  const displayName = profile?.nome || user?.user_metadata?.nome || user?.email?.split('@')[0] || 'Usuário';
+  const avatarUrl = profile?.foto_perfil || user?.user_metadata?.avatar_url || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=150";
 
   const navLinks = [
     { name: "Quem Somos", href: "/quem-somos" },
@@ -104,24 +95,24 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 </Link>
               ))}
 
-              {user.isLoggedIn ? (
+              {user ? (
                 <Link 
                   to="/perfil" 
                   className="flex items-center gap-3 bg-white/5 border border-white/10 px-4 py-2 rounded-full hover:border-brand-orange hover:bg-white/10 transition-all group shrink-0"
                 >
                   <img 
-                    src={user.avatar || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=150"} 
-                    alt={user.name} 
+                    src={avatarUrl} 
+                    alt={displayName} 
                     className="w-7 h-7 rounded-full object-cover border border-brand-orange"
                     referrerPolicy="no-referrer"
                   />
                   <div className="text-left select-none">
                     <p className="text-[10px] font-black uppercase tracking-wider text-white leading-none group-hover:text-brand-orange transition-colors">
-                      {user.name ? user.name.split(" ")[0] : "Perfil"}
+                      {displayName.split(" ")[0]}
                     </p>
                     <span className="text-[8px] font-black uppercase text-green-400 leading-none flex items-center gap-1 mt-0.5">
                       <span className="w-1 h-1 bg-green-400 rounded-full animate-pulse" />
-                      Ativo
+                      Conectado
                     </span>
                   </div>
                 </Link>
@@ -145,11 +136,11 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
             {/* Mobile Menu Button with Avatar */}
             <div className="md:hidden flex items-center gap-4">
-              {user.isLoggedIn && (
+              {user && (
                 <Link to="/perfil" className="w-8 h-8 rounded-full overflow-hidden border border-brand-orange">
                   <img 
-                    src={user.avatar || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=150"} 
-                    alt={user.name} 
+                    src={avatarUrl} 
+                    alt={displayName} 
                     className="w-full h-full object-cover"
                     referrerPolicy="no-referrer"
                   />
@@ -183,18 +174,18 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             ))}
 
             <div className="border-t border-white/10 mt-4 pt-4">
-              {user.isLoggedIn ? (
+              {user ? (
                 <div className="space-y-4">
                   <div className="flex items-center gap-3 px-2">
                     <img 
-                      src={user.avatar || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=150"} 
-                      alt={user.name} 
+                      src={avatarUrl} 
+                      alt={displayName} 
                       className="w-10 h-10 rounded-full object-cover border border-brand-orange"
                       referrerPolicy="no-referrer"
                     />
                     <div>
-                      <p className="text-sm font-black uppercase tracking-tighter">{user.name}</p>
-                      <span className="text-[10px] font-black uppercase text-green-400">Ativo</span>
+                      <p className="text-sm font-black uppercase tracking-tighter">{displayName}</p>
+                      <span className="text-[10px] font-black uppercase text-green-400">Conectado</span>
                     </div>
                   </div>
                   <Link 
@@ -279,7 +270,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               <p className="text-xs font-black uppercase tracking-[0.4em] text-white/30">Conexões Vivas</p>
               
               {/* Painel de Manutenção link - shown only to logged-in users */}
-              {user.isLoggedIn && (
+              {user && (
                 <Link 
                   to="/admin" 
                   className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-white/20 hover:text-brand-orange transition-colors mt-4 bg-white/5 border border-white/15 px-4 py-2 rounded-xl"
