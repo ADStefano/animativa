@@ -1,0 +1,226 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --color-brand-purple: #3B0764;
+  --color-brand-orange: #FF8C00;
+  --color-brand-blue: #00AEEF;
+}
+
+@layer base {
+  html {
+    font-size: 20px;
+  }
+  body {
+    @apply bg-brand-purple text-white font-sans antialiased transition-colors duration-300;
+  }
+}
+
+@layer utilities {
+  .bg-mesh {
+    background-image: radial-gradient(at 0% 0%, hsla(253,16%,7%,1) 0, transparent 50%), 
+                      radial-gradient(at 50% 0%, hsla(225,39%,30%,1) 0, transparent 50%), 
+                      radial-gradient(at 100% 0%, hsla(339,49%,30%,1) 0, transparent 50%);
+  }
+}
+
+/* Light Theme Overrides */
+html.light-theme,
+html.light-theme body,
+.light-theme,
+.light-theme .min-h-screen {
+  background-color: #ffffff !important;
+  background-image: none !important;
+  color: #1a0826 !important;
+}
+
+/* Override background colors of elements in light theme */
+.light-theme .bg-brand-purple,
+.light-theme .bg-\[\#0A0A0A\],
+.light-theme .bg-\[\#121212\],
+.light-theme .bg-\[\#111\] {
+  background-color: #ffffff !important;
+  color: #1a0826 !important;
+}
+
+.light-theme nav.bg-brand-purple\/80 {
+  background-color: rgba(255, 255, 255, 0.9) !important;
+  border-color: rgba(39, 20, 61, 0.1) !important;
+}
+
+.light-theme footer.bg-brand-purple,
+.light-theme footer {
+  background-color: #fcfbfe !important;
+  border-top: 1px solid rgba(39, 20, 61, 0.1) !important;
+}
+
+/* Typography and Opacity in light theme */
+.light-theme .text-white {
+  color: #1a0826 !important;
+}
+
+.light-theme .text-white\/90 {
+  color: rgba(26, 8, 38, 0.9) !important;
+}
+
+.light-theme .text-white\/80 {
+  color: rgba(26, 8, 38, 0.8) !important;
+}
+
+.light-theme .text-white\/70 {
+  color: rgba(26, 8, 38, 0.7) !important;
+}
+
+.light-theme .text-white\/60 {
+  color: rgba(26, 8, 38, 0.6) !important;
+}
+
+.light-theme .text-white\/50 {
+  color: rgba(26, 8, 38, 0.5) !important;
+}
+
+.light-theme .text-white\/40 {
+  color: rgba(26, 8, 38, 0.42) !important;
+}
+
+.light-theme .text-white\/30 {
+  color: rgba(26, 8, 38, 0.32) !important;
+}
+
+.light-theme .text-white\/20 {
+  color: rgba(26, 8, 38, 0.22) !important;
+}
+
+.light-theme .text-white\/10 {
+  color: rgba(26, 8, 38, 0.12) !important;
+}
+
+.light-theme .text-white\/5 {
+  color: rgba(26, 8, 38, 0.05) !important;
+}
+
+/* Hover typography */
+.light-theme .hover\:text-white:hover {
+  color: #3b0764 !important;
+}
+
+/* Card backgrounds and lists in light theme */
+.light-theme .bg-white\/5 {
+  background-color: #f7f5fa !important;
+  box-shadow: 0 4px 20px -2px rgba(39, 20, 61, 0.04), 0 2px 4px -1px rgba(39, 20, 61, 0.02) !important;
+  border: 1px solid rgba(39, 20, 61, 0.08) !important;
+}
+
+.light-theme .bg-white\/10 {
+  background-color: #efeaf5 !important;
+  border: 1px solid rgba(39, 20, 61, 0.12) !important;
+}
+
+.light-theme .bg-white\/\[0\.02\] {
+  background-color: #faf9fc !important;
+}
+
+.light-theme .bg-white\/\[0\.01\] {
+  background-color: #fdfdfd !important;
+}
+
+/* Borders in light theme */
+.light-theme .border-white\/10 {
+  border-color: rgba(39, 20, 61, 0.1) !important;
+}
+
+.light-theme .border-white\/5 {
+  border-color: rgba(39, 20, 61, 0.06) !important;
+}
+
+.light-theme .border-white\/20 {
+  border-color: rgba(39, 20, 61, 0.18) !important;
+}
+
+.light-theme .border-white\/15 {
+  border-color: rgba(39, 20, 61, 0.14) !important;
+}
+
+.light-theme .divide-white\/10 > :not([hidden]) ~ :not([hidden]) {
+  border-color: rgba(39, 20, 61, 0.1) !important;
+}
+
+/* Inputs and Forms in light theme */
+.light-theme input, 
+.light-theme select, 
+.light-theme textarea {
+  background-color: #ffffff !important;
+  color: #1a0826 !important;
+  border-color: rgba(39, 20, 61, 0.15) !important;
+}
+
+.light-theme input::placeholder, 
+.light-theme select::placeholder, 
+.light-theme textarea::placeholder {
+  color: rgba(39, 20, 61, 0.4) !important;
+}
+
+.light-theme input:focus, 
+.light-theme select:focus, 
+.light-theme textarea:focus {
+  border-color: #3b0764 !important;
+  box-shadow: 0 0 0 2px rgba(59, 7, 100, 0.1) !important;
+}
+
+/* Sidebar and Headers */
+.light-theme aside {
+  background-color: #faf9fc !important;
+  border-right: 1px solid rgba(39, 20, 61, 0.1) !important;
+}
+
+.light-theme aside button.bg-white {
+  background-color: #3b0764 !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 12px rgba(59, 7, 100, 0.15) !important;
+}
+
+.light-theme header {
+  border-bottom: 1px solid rgba(39, 20, 61, 0.08) !important;
+}
+
+/* Hover effects in light theme */
+.light-theme .hover\:bg-white\/5:hover {
+  background-color: rgba(39, 20, 61, 0.03) !important;
+}
+
+.light-theme .hover\:bg-white\/10:hover {
+  background-color: rgba(39, 20, 61, 0.05) !important;
+}
+
+.light-theme .hover\:border-white\/20:hover {
+  border-color: rgba(39, 20, 61, 0.18) !important;
+}
+
+.light-theme .hover\:bg-white:hover {
+  background-color: #3b0764 !important;
+  color: #ffffff !important;
+}
+
+/* Higher saturation for status badges / highlights in light theme */
+.light-theme .text-brand-blue {
+  color: #007ca8 !important;
+}
+.light-theme .text-brand-orange {
+  color: #c96200 !important;
+}
+.light-theme .text-green-500,
+.light-theme .text-green-400 {
+  color: #166534 !important;
+}
+.light-theme .text-red-500,
+.light-theme .text-red-400 {
+  color: #991b1b !important;
+}
+
+/* Mesh gradients in light theme */
+.light-theme .bg-mesh {
+  background-image: radial-gradient(at 0% 0%, rgba(255, 255, 255, 0.95) 0, transparent 50%), 
+                    radial-gradient(at 50% 0%, rgba(59, 7, 100, 0.04) 0, transparent 50%), 
+                    radial-gradient(at 100% 0%, rgba(255, 140, 0, 0.03) 0, transparent 50%) !important;
+}
+
