@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { getAuthUser } from "../utils/auth";
+import { useAuth } from "../contexts/AuthContext";
 
 type Tab = "dashboard" | "iniciativas" | "voluntarios" | "projetos" | "eventos" | "usuarios" | "configuracoes" | "parceiros" | "solicitacoes";
 
@@ -86,9 +87,18 @@ const TextArea = (props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) => (
 );
 
 export default function Admin() {
-  const user = getAuthUser();
+  const { user: supabaseUser, profile } = useAuth();
+  const localUser = getAuthUser();
+  const isLogged = !!supabaseUser || (localUser && localUser.isLoggedIn);
 
-  if (!user || !user.isLoggedIn) {
+  const user = {
+    name: profile?.nome || supabaseUser?.user_metadata?.nome || localUser?.name || supabaseUser?.email?.split('@')[0] || "Administrador",
+    avatar: profile?.foto_perfil || supabaseUser?.user_metadata?.avatar_url || localUser?.avatar || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=150",
+    email: supabaseUser?.email || localUser?.email || "admin@animativa.org.br",
+    role: "Administrador"
+  };
+
+  if (!isLogged) {
     return (
       <div className="min-h-screen bg-[#0A0A0A] text-white flex flex-col items-center justify-center p-6 text-center">
         <div className="w-16 h-16 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center mb-6">

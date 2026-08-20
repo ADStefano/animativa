@@ -17,6 +17,7 @@ import ProjetoDetalhes from "./pages/ProjetoDetalhes";
 import Admin from "./pages/Admin";
 import Cadastro from "./pages/Cadastro";
 import Perfil from "./pages/Perfil";
+import Apoie from "./pages/Apoie";
 
 export default function App() {
   return (
@@ -30,6 +31,7 @@ export default function App() {
           <Route path="/projetos" element={<Layout><Projetos /></Layout>} />
           <Route path="/projetos/:id" element={<Layout><ProjetoDetalhes /></Layout>} />
           <Route path="/eventos" element={<Layout><Eventos /></Layout>} />
+          <Route path="/apoie" element={<Layout><Apoie /></Layout>} />
           <Route path="/cadastro" element={<Cadastro />} />
           <Route
             path="/perfil"

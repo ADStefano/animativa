@@ -69,6 +69,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     { name: "Voluntários", href: "/voluntarios" },
     { name: "Projetos", href: "/projetos" },
     { name: "Eventos", href: "/eventos" },
+    { name: "Apoie", href: "/apoie" },
   ];
 
   return (

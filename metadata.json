@@ -1,5 +1,6 @@
 {
   "name": "Remix Animativa - Conexões Vivas",
   "description": "Hub que conecta iniciativas transformadoras e voluntários com projetos de impacto social.",
-  "requestFramePermissions": []
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
