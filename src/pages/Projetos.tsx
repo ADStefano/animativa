@@ -59,7 +59,7 @@ export default function Projetos() {
         setDbProjects([]);
       }
     } catch (err) {
-      console.warn("Erro ao buscar projetos do banco:", err);
+      console.warn("Erro ao buscar projetos:", err);
       setDbProjects([]);
     } finally {
       setLoading(false);
@@ -184,7 +184,7 @@ export default function Projetos() {
         {loading && (
           <div className="flex items-center justify-center py-12 gap-3 text-white/60">
             <Loader2 className="w-6 h-6 animate-spin text-brand-orange" />
-            <span className="text-xs font-black uppercase tracking-widest">Carregando projetos do banco de dados...</span>
+            <span className="text-xs font-black uppercase tracking-widest">Carregando projetos...</span>
           </div>
         )}
 

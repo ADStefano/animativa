@@ -185,12 +185,12 @@ export default function Iniciativas() {
 
       if (error) {
         if (error.message.includes("unique constraint") || error.message.includes("iniciativa_nome_key")) {
-          throw new Error("Já existe uma iniciativa cadastrada com este nome. Escolha um nome diferente.");
+          throw new Error("Já existe uma iniciativa cadastrada com este nome.");
         }
         throw error;
       }
 
-      setSuccessMessage("Iniciativa cadastrada com sucesso no banco de dados!");
+      setSuccessMessage("Iniciativa cadastrada com sucesso!");
       
       // Limpa campos
       setFormData((prev) => ({
@@ -553,7 +553,7 @@ export default function Iniciativas() {
                   {loading ? (
                     <>
                       <Loader2 className="w-5 h-5 animate-spin" />
-                      Cadastrando Iniciativa no Banco...
+                      Cadastrando Iniciativa...
                     </>
                   ) : (
                     <>

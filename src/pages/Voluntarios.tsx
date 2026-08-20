@@ -183,7 +183,7 @@ export default function Voluntarios() {
       }
 
       setIsAlreadyVolunteer(true);
-      setSuccessMessage("Cadastro de voluntário salvo com sucesso no banco de dados!");
+      setSuccessMessage("Voluntário cadastrado com sucesso!");
     } catch (err: any) {
       console.error("Erro ao salvar cadastro de voluntário:", err);
       setErrorMessage(
@@ -581,7 +581,7 @@ export default function Voluntarios() {
                     className="w-5 h-5 mt-0.5 accent-brand-blue shrink-0 rounded" 
                   />
                   <span className="text-xs text-white/80 leading-relaxed">
-                    Autorizo a Animativa a registrar meus dados na tabela de voluntários e a entrar em contato comigo por e-mail ou WhatsApp para oportunidades de impacto social.
+                    Autorizo a Animativa a registrar meus dados e a entrar em contato comigo por e-mail ou WhatsApp para oportunidades de impacto social.
                   </span>
                 </label>
               </div>
@@ -596,7 +596,7 @@ export default function Voluntarios() {
                   {loading ? (
                     <>
                       <Loader2 className="w-5 h-5 animate-spin" />
-                      Salvando Cadastro no Banco...
+                      Salvando Cadastro...
                     </>
                   ) : (
                     <>
