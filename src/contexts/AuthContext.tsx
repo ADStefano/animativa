@@ -40,10 +40,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
 
   // Verifica se as credenciais do Supabase estão preenchidas
+  const rawUrl = (import.meta.env.VITE_SUPABASE_URL || '').trim().replace(/^["']|["']$/g, '');
+  const rawKey = (import.meta.env.VITE_SUPABASE_ANON_KEY || '').trim().replace(/^["']|["']$/g, '');
   const isConfigured = Boolean(
-    import.meta.env.VITE_SUPABASE_URL &&
-    import.meta.env.VITE_SUPABASE_ANON_KEY &&
-    !import.meta.env.VITE_SUPABASE_URL.includes('your-project')
+    rawUrl &&
+    rawKey &&
+    !rawUrl.includes('your-project') &&
+    !rawUrl.includes('placeholder')
   );
 
   const fetchProfile = async (authUser: User) => {
@@ -69,7 +72,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .maybeSingle();
 
       if (error) {
-        console.error('Erro ao buscar perfil do usuário no Supabase:', error);
+        console.warn('Aviso ao buscar perfil na tabela usuario:', error.message || error);
+        // Em caso de erro de rede/tabela, aplica perfil básico a partir do auth sem bloquear a UI
+        setProfile({
+          id: 0,
+          auth_user_id: authUser.id,
+          nome: authUser.user_metadata?.nome || authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || 'Usuário',
+          email: authUser.email || '',
+          foto_perfil: authUser.user_metadata?.avatar_url || null,
+          role: 'VOLUNTARIO',
+          status: 'ATIVO',
+        });
+        return;
       }
 
       if (data) {
@@ -110,7 +124,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
     } catch (err) {
-      console.error('Erro inesperado ao carregar perfil:', err);
+      console.warn('Erro inesperado ao carregar perfil:', err);
     }
   };
 
