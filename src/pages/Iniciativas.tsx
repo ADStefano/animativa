@@ -31,6 +31,7 @@ export default function Iniciativas() {
   const [errorMessage, setErrorMessage] = useState("");
 
   const [initiativesList, setInitiativesList] = useState<any[]>([]);
+  const [userInitiatives, setUserInitiatives] = useState<any[]>([]);
   const [loadingList, setLoadingList] = useState(true);
 
   // Form Data
@@ -66,9 +67,28 @@ export default function Iniciativas() {
         email: user.email || prev.email,
         nome_rep_legal: profile?.nome || user.user_metadata?.nome || prev.nome_rep_legal,
       }));
+      loadUserInitiatives();
     }
     loadInitiatives();
   }, [user, profile]);
+
+  const loadUserInitiatives = async () => {
+    if (!user) return;
+    try {
+      let query = supabase.from("iniciativa").select("*");
+      if (profile?.id) {
+        query = query.or(`id_usuario.eq.${profile.id},email.eq.${user.email}`);
+      } else {
+        query = query.eq("email", user.email);
+      }
+      const { data, error } = await query.order("created_at", { ascending: false });
+      if (data && !error) {
+        setUserInitiatives(data);
+      }
+    } catch (err) {
+      console.warn("Erro ao buscar iniciativas do usuário:", err);
+    }
+  };
 
   const loadInitiatives = async () => {
     setLoadingList(true);
@@ -205,8 +225,9 @@ export default function Iniciativas() {
         habilidades_exigidas: "",
       }));
 
-      // Atualiza lista
+      // Atualiza listas
       loadInitiatives();
+      loadUserInitiatives();
     } catch (err: any) {
       console.error("Erro ao cadastrar iniciativa:", err);
       setErrorMessage(err?.message || "Ocorreu um erro ao cadastrar a iniciativa.");
@@ -286,8 +307,66 @@ export default function Iniciativas() {
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 mb-32 items-start">
           
-          {/* Benefits Column */}
+          {/* Benefits and My Initiatives Column */}
           <div className="lg:col-span-4 space-y-8">
+            
+            {/* User Initiatives List if logged in and has projects */}
+            {user && userInitiatives.length > 0 && (
+              <div className="bg-white/5 border border-brand-orange/30 p-8 rounded-[3rem] space-y-6 shadow-xl relative overflow-hidden">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xl font-black uppercase tracking-tight text-white flex items-center gap-2">
+                    <FileText className="w-5 h-5 text-brand-orange" />
+                    Minhas Iniciativas
+                  </h2>
+                  <span className="text-[10px] font-black uppercase tracking-widest px-2.5 py-1 bg-brand-orange/20 text-brand-orange rounded-full">
+                    {userInitiatives.length}
+                  </span>
+                </div>
+
+                <div className="space-y-3">
+                  {userInitiatives.map((item) => (
+                    <div 
+                      key={item.id}
+                      className="p-4 rounded-2xl bg-white/5 border border-white/5 space-y-2 hover:border-white/20 transition-colors"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <h3 className="font-black text-sm text-white uppercase tracking-tight leading-tight line-clamp-1">
+                          {item.nome}
+                        </h3>
+                        {item.autorizada ? (
+                          <span className="shrink-0 text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md bg-green-500/20 text-green-400 border border-green-500/30">
+                            Aprovada
+                          </span>
+                        ) : (
+                          <span className="shrink-0 text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md bg-yellow-500/20 text-yellow-400 border border-yellow-500/30">
+                            Em Análise
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[10px] text-white/50 uppercase tracking-wider">
+                        {item.setor_sociedade || "Impacto Social"} • {item.cidade || "Brasil"}
+                      </p>
+                      <div className="pt-1 flex items-center justify-between">
+                        <span className="text-[9px] text-white/40">
+                          {item.data_cadastro ? `Criada em ${new Date(item.data_cadastro).toLocaleDateString('pt-BR')}` : ""}
+                        </span>
+                        {item.autorizada ? (
+                          <Link 
+                            to={`/projetos/${item.id}`}
+                            className="text-[10px] font-black uppercase tracking-widest text-brand-orange hover:text-white flex items-center gap-1 transition-colors"
+                          >
+                            Ver Página <ArrowRight className="w-3 h-3" />
+                          </Link>
+                        ) : (
+                          <span className="text-[9px] text-white/30 italic">Aguardando coordenação</span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="bg-white/5 border border-white/10 p-8 rounded-[3rem] space-y-6">
               <h2 className="text-2xl font-black uppercase tracking-tighter text-white">Por que cadastrar?</h2>
               

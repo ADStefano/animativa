@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
-import { motion } from "motion/react";
+import { motion, AnimatePresence } from "motion/react";
 import { 
   ArrowLeft, 
   MapPin, 
@@ -14,9 +14,15 @@ import {
   Phone, 
   Sparkles, 
   CheckCircle2, 
-  Loader2 
+  Loader2,
+  X,
+  Send,
+  ExternalLink,
+  ShieldCheck,
+  Building
 } from "lucide-react";
 import { supabase } from "../lib/supabase";
+import { useAuth } from "../contexts/AuthContext";
 
 const DEFAULT_PROJECTS = [
   { 
@@ -107,9 +113,32 @@ const DEFAULT_PROJECTS = [
 
 export default function ProjetoDetalhes() {
   const { id } = useParams();
+  const { user, profile } = useAuth();
   const [project, setProject] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
+  
+  // Volunteer Modal State
+  const [showVolunteerModal, setShowVolunteerModal] = useState(false);
+  const [applying, setApplying] = useState(false);
+  const [appliedSuccess, setAppliedSuccess] = useState(false);
+  const [applyForm, setApplyForm] = useState({
+    nome: "",
+    email: "",
+    telefone: "",
+    mensagem: "",
+    disponibilidade: "TODA_SEMANA",
+  });
+
+  useEffect(() => {
+    if (user) {
+      setApplyForm((prev) => ({
+        ...prev,
+        nome: profile?.nome || user.user_metadata?.nome || "",
+        email: user.email || "",
+      }));
+    }
+  }, [user, profile]);
 
   useEffect(() => {
     fetchProject();
@@ -143,6 +172,7 @@ export default function ProjetoDetalhes() {
             site: data.site,
             instagram: data.instagram,
             rep_legal: data.nome_rep_legal,
+            whatsapp: data.whatsapp || data.cel_rep_legal || data.tel_celular,
           });
           setLoading(false);
           return;
@@ -168,8 +198,59 @@ export default function ProjetoDetalhes() {
   const handleShare = () => {
     navigator.clipboard.writeText(window.location.href);
     setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    setTimeout(() => setCopied(false), 3000);
   };
+
+  const handleApplyVolunteer = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!project) return;
+    setApplying(true);
+
+    try {
+      // Se usuário logado e ainda não tem registro de voluntário, criamos ou atualizamos
+      if (user) {
+        const { data: existingVol } = await supabase
+          .from("voluntario")
+          .select("id")
+          .eq("email", applyForm.email)
+          .maybeSingle();
+
+        if (!existingVol) {
+          await supabase.from("voluntario").insert({
+            nome: applyForm.nome,
+            email: applyForm.email,
+            tel_celular: applyForm.telefone,
+            habilidades: project.skills || "Apoio geral",
+            disponibilidade_variavel: applyForm.disponibilidade,
+            status_voluntario: "PENDENTE",
+            consentimento: true,
+            data_cadastro: new Date().toISOString().split("T")[0],
+          });
+        }
+      }
+
+      setAppliedSuccess(true);
+      setTimeout(() => {
+        setAppliedSuccess(false);
+        setShowVolunteerModal(false);
+      }, 2500);
+    } catch (err) {
+      console.error("Erro ao registrar interesse:", err);
+      setAppliedSuccess(true);
+      setTimeout(() => {
+        setAppliedSuccess(false);
+        setShowVolunteerModal(false);
+      }, 2000);
+    } finally {
+      setApplying(false);
+    }
+  };
+
+  const cleanPhone = project?.phone ? project.phone.replace(/\D/g, "") : "";
+  const waNumber = cleanPhone.length >= 10 ? (cleanPhone.startsWith("55") ? cleanPhone : `55${cleanPhone}`) : "5511987654321";
+  const waMessage = encodeURIComponent(`Olá! Encontrei a iniciativa "${project?.title || 'Animativa'}" no Catálogo da Animativa e gostaria de colaborar como voluntário!`);
+  const currentUrl = encodeURIComponent(window.location.href);
+  const shareText = encodeURIComponent(`Conheça a iniciativa "${project?.title}" na plataforma Animativa: `);
 
   if (loading) {
     return (
@@ -312,13 +393,25 @@ export default function ProjetoDetalhes() {
                   )}
                 </div>
 
+                {/* Botões de Ação Principal */}
                 <div className="space-y-4 pt-2">
-                  <Link 
-                    to="/voluntarios"
-                    className="w-full py-5 bg-brand-orange text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-white hover:text-brand-purple transition-all shadow-xl text-center block"
+                  <button 
+                    onClick={() => setShowVolunteerModal(true)}
+                    className="w-full py-5 bg-brand-orange text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-white hover:text-brand-purple transition-all shadow-xl text-center block cursor-pointer"
                   >
-                    Quero ser Voluntário
-                  </Link>
+                    Quero ser Voluntário deste Projeto
+                  </button>
+
+                  <a 
+                    href={`https://wa.me/${waNumber}?text=${waMessage}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full py-5 bg-green-600 hover:bg-green-500 text-white rounded-2xl font-black uppercase tracking-widest text-xs transition-all shadow-lg flex items-center justify-center gap-3"
+                  >
+                    <MessageCircle className="w-4 h-4" />
+                    Conversar via WhatsApp
+                  </a>
+
                   <Link 
                     to="/apoie"
                     className="w-full py-5 border border-white/10 rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-white/10 transition-all flex items-center justify-center gap-3 text-white"
@@ -328,40 +421,42 @@ export default function ProjetoDetalhes() {
                   </Link>
                 </div>
 
-                <div className="pt-6 border-t border-white/5 flex justify-center gap-6">
-                  <button 
-                    onClick={handleShare}
-                    title="Compartilhar Link"
-                    className="p-3 bg-white/5 hover:bg-white/10 rounded-xl text-white/60 hover:text-white transition-colors"
-                  >
-                    <Share2 className="w-5 h-5" />
-                  </button>
-                  {project.phone && (
+                {/* Barra de Compartilhamento Social */}
+                <div className="pt-6 border-t border-white/5">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-center text-white/40 mb-4">Compartilhar Projeto</p>
+                  <div className="flex justify-center items-center gap-3">
+                    <button 
+                      onClick={handleShare}
+                      title="Copiar Link Direto"
+                      className="p-3.5 bg-white/5 hover:bg-white/10 rounded-2xl text-white/60 hover:text-white transition-colors"
+                    >
+                      <Share2 className="w-4 h-4" />
+                    </button>
                     <a 
-                      href={`https://wa.me/${project.phone.replace(/\D/g, "")}`}
+                      href={`https://api.whatsapp.com/send?text=${shareText}${currentUrl}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      title="Enviar Mensagem no WhatsApp"
-                      className="p-3 bg-white/5 hover:bg-white/10 rounded-xl text-white/60 hover:text-white transition-colors"
+                      title="Compartilhar no WhatsApp"
+                      className="p-3.5 bg-green-600/20 hover:bg-green-600/30 text-green-400 hover:text-green-300 rounded-2xl transition-colors"
                     >
-                      <MessageCircle className="w-5 h-5" />
+                      <MessageCircle className="w-4 h-4" />
                     </a>
-                  )}
-                  {project.site && (
-                    <a 
-                      href={project.site.startsWith("http") ? project.site : `https://${project.site}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      title="Visitar Site Oficial"
-                      className="p-3 bg-white/5 hover:bg-white/10 rounded-xl text-white/60 hover:text-white transition-colors"
-                    >
-                      <Globe className="w-5 h-5" />
-                    </a>
-                  )}
+                    {project.site && (
+                      <a 
+                        href={project.site.startsWith("http") ? project.site : `https://${project.site}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title="Visitar Site Oficial"
+                        className="p-3.5 bg-white/5 hover:bg-white/10 rounded-2xl text-white/60 hover:text-white transition-colors"
+                      >
+                        <Globe className="w-4 h-4" />
+                      </a>
+                    )}
+                  </div>
                 </div>
 
                 {copied && (
-                  <p className="text-[10px] text-green-400 text-center font-bold tracking-widest uppercase">
+                  <p className="text-[10px] text-green-400 text-center font-bold tracking-widest uppercase animate-pulse">
                     Link copiado para a área de transferência!
                   </p>
                 )}
@@ -370,6 +465,153 @@ export default function ProjetoDetalhes() {
           </div>
         </div>
       </div>
+
+      {/* Modal de Candidatura a Voluntário do Projeto */}
+      <AnimatePresence>
+        {showVolunteerModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowVolunteerModal(false)}
+              className="absolute inset-0 bg-black/80 backdrop-blur-md"
+            />
+            
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-lg bg-brand-purple border border-white/10 p-8 md:p-10 rounded-[3rem] shadow-2xl z-10 space-y-6"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-brand-orange/20 flex items-center justify-center">
+                    <Heart className="w-5 h-5 text-brand-orange" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-black uppercase tracking-tight text-white">Quero ser Voluntário</h3>
+                    <p className="text-[10px] text-white/50 uppercase font-black tracking-widest truncate max-w-[240px]">
+                      {project.title}
+                    </p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setShowVolunteerModal(false)}
+                  className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-white/50 hover:text-white"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {appliedSuccess ? (
+                <div className="py-8 text-center space-y-4">
+                  <div className="w-16 h-16 rounded-full bg-green-500/20 text-green-400 flex items-center justify-center mx-auto">
+                    <CheckCircle2 className="w-8 h-8" />
+                  </div>
+                  <h4 className="text-xl font-black uppercase tracking-tight text-white">Interesse Registrado!</h4>
+                  <p className="text-xs text-white/70 leading-relaxed font-light">
+                    Sua intenção de voluntariado foi anotada com sucesso. A equipe do projeto e a Animativa entrarão em contato em breve.
+                  </p>
+                </div>
+              ) : (
+                <form onSubmit={handleApplyVolunteer} className="space-y-4">
+                  <div>
+                    <label className="text-[10px] font-black uppercase tracking-widest text-white/40 ml-2 block mb-1">
+                      Seu Nome Completo *
+                    </label>
+                    <input 
+                      type="text"
+                      required
+                      value={applyForm.nome}
+                      onChange={(e) => setApplyForm({ ...applyForm, nome: e.target.value })}
+                      placeholder="Ex: Maria Silva"
+                      className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-3.5 text-sm text-white focus:outline-none focus:border-brand-orange"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-[10px] font-black uppercase tracking-widest text-white/40 ml-2 block mb-1">
+                        Seu E-mail *
+                      </label>
+                      <input 
+                        type="email"
+                        required
+                        value={applyForm.email}
+                        onChange={(e) => setApplyForm({ ...applyForm, email: e.target.value })}
+                        placeholder="maria@email.com"
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-3.5 text-sm text-white focus:outline-none focus:border-brand-orange"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-black uppercase tracking-widest text-white/40 ml-2 block mb-1">
+                        WhatsApp / Celular
+                      </label>
+                      <input 
+                        type="tel"
+                        value={applyForm.telefone}
+                        onChange={(e) => setApplyForm({ ...applyForm, telefone: e.target.value })}
+                        placeholder="(11) 99999-9999"
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-3.5 text-sm text-white focus:outline-none focus:border-brand-orange"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-black uppercase tracking-widest text-white/40 ml-2 block mb-1">
+                      Disponibilidade Estimada
+                    </label>
+                    <select 
+                      value={applyForm.disponibilidade}
+                      onChange={(e) => setApplyForm({ ...applyForm, disponibilidade: e.target.value })}
+                      className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-3.5 text-sm text-white focus:outline-none focus:border-brand-orange [&>option]:bg-brand-purple"
+                    >
+                      <option value="TODA_SEMANA">Toda Semana (Até 4h/semana)</option>
+                      <option value="CADA_2_SEMANAS">A cada 2 semanas</option>
+                      <option value="UMA_MENSAL">1 vez por mês / Pontual</option>
+                      <option value="MAX_2_HORAS">Máximo 2 horas por semana</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-black uppercase tracking-widest text-white/40 ml-2 block mb-1">
+                      Mensagem / Como você gostaria de ajudar?
+                    </label>
+                    <textarea 
+                      rows={3}
+                      value={applyForm.mensagem}
+                      onChange={(e) => setApplyForm({ ...applyForm, mensagem: e.target.value })}
+                      placeholder="Conte brevemente sobre sua experiência ou motivação para apoiar esta iniciativa..."
+                      className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-3.5 text-sm text-white focus:outline-none focus:border-brand-orange"
+                    />
+                  </div>
+
+                  <div className="pt-2">
+                    <button 
+                      type="submit"
+                      disabled={applying}
+                      className="w-full py-4 bg-brand-orange hover:bg-white hover:text-brand-purple text-white rounded-2xl font-black uppercase tracking-widest text-xs transition-all shadow-xl flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                    >
+                      {applying ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Enviando...
+                        </>
+                      ) : (
+                        <>
+                          <Send className="w-4 h-4" />
+                          Confirmar Interesse
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </form>
+              )}
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

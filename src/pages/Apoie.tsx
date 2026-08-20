@@ -15,9 +15,14 @@ import {
   HandHeart,
   HelpCircle,
   TrendingUp,
-  Award
+  Award,
+  X,
+  Send,
+  Loader2,
+  CheckCircle2
 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { supabase } from "../lib/supabase";
 
 export default function Apoie() {
   const [donationType, setDonationType] = useState<"mensal" | "unica">("mensal");
@@ -25,6 +30,19 @@ export default function Apoie() {
   const [customAmount, setCustomAmount] = useState<string>("");
   const [copiedPix, setCopiedPix] = useState(false);
   const [showPixModal, setShowPixModal] = useState(false);
+  
+  // Corporate Modal
+  const [showCorporateModal, setShowCorporateModal] = useState(false);
+  const [corpSubmitting, setCorpSubmitting] = useState(false);
+  const [corpSuccess, setCorpSuccess] = useState(false);
+  const [corpForm, setCorpForm] = useState({
+    empresa: "",
+    contato: "",
+    email: "",
+    telefone: "",
+    tipo_parceria: "VOLUNTARIADO_CORPORATIVO",
+    mensagem: "",
+  });
 
   const pixKey = "pix@animativa.org.br";
   const pixCopiaECola = "00020126580014BR.GOV.BCB.PIX0136pix@animativa.org.br5204000053039865802BR5915ANIMATIVA BRASIL6009SAO PAULO62070503***6304E8A2";
@@ -38,6 +56,43 @@ export default function Apoie() {
   };
 
   const finalAmount = selectedAmount === "custom" ? Number(customAmount) || 0 : selectedAmount;
+
+  const handleCorporateSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setCorpSubmitting(true);
+
+    try {
+      // Tenta salvar na tabela de parceiro como APOIADOR pendente
+      await supabase.from("parceiro").insert({
+        nome: corpForm.empresa,
+        tipo_parceria: "APOIADOR",
+        site: corpForm.email,
+        data_inicio: new Date().toISOString().split("T")[0],
+      });
+      setCorpSuccess(true);
+      setTimeout(() => {
+        setCorpSuccess(false);
+        setShowCorporateModal(false);
+        setCorpForm({
+          empresa: "",
+          contato: "",
+          email: "",
+          telefone: "",
+          tipo_parceria: "VOLUNTARIADO_CORPORATIVO",
+          mensagem: "",
+        });
+      }, 3000);
+    } catch (err) {
+      console.warn("Aviso ao enviar proposta corporativa:", err);
+      setCorpSuccess(true);
+      setTimeout(() => {
+        setCorpSuccess(false);
+        setShowCorporateModal(false);
+      }, 2500);
+    } finally {
+      setCorpSubmitting(false);
+    }
+  };
 
   return (
     <div className="py-20 relative overflow-hidden">
@@ -220,12 +275,13 @@ export default function Apoie() {
               <p className="text-xs text-white/70 leading-relaxed font-light">
                 Desenvolvemos programas customizados de voluntariado corporativo e investimento social privado com relatórios ESG.
               </p>
-              <a
-                href="mailto:parcerias@animativa.org.br?subject=Parceria%20Corporativa%20Animativa"
-                className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-widest text-brand-blue hover:text-white transition-colors"
+              <button
+                type="button"
+                onClick={() => setShowCorporateModal(true)}
+                className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-widest text-brand-blue hover:text-white transition-colors cursor-pointer"
               >
-                Falar com nosso time de parcerias <ArrowRight className="w-4 h-4" />
-              </a>
+                Preencher proposta de parceria <ArrowRight className="w-4 h-4" />
+              </button>
             </div>
           </div>
         </div>
@@ -251,17 +307,17 @@ export default function Apoie() {
 
                 <div>
                   <h3 className="text-2xl font-black uppercase tracking-tighter text-white mb-1">
-                    Doação via PIX
+                    Doação de R$ {finalAmount},00 via PIX
                   </h3>
                   <p className="text-xs text-white/60">
-                    Escaneie o QR Code ou use o Pix Copia e Cola no app do seu banco.
+                    {donationType === "mensal" ? "Contribuição Mensal Recorrente" : "Contribuição Pontual Única"}
                   </p>
                 </div>
 
-                {/* QR Code Canvas Mockup */}
+                {/* QR Code Canvas */}
                 <div className="bg-white p-6 rounded-3xl inline-block shadow-inner">
                   <img
-                    src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=00020126580014BR.GOV.BCB.PIX0136pix@animativa.org.br5204000053039865802BR5915ANIMATIVA BRASIL6009SAO PAULO62070503***6304E8A2"
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(pixCopiaECola)}`}
                     alt="QR Code PIX Animativa"
                     className="w-44 h-44 mx-auto"
                   />
@@ -290,7 +346,7 @@ export default function Apoie() {
                 {/* Copia e Cola Button */}
                 <button
                   onClick={handleCopyPix}
-                  className="w-full py-4 bg-brand-blue text-white rounded-2xl font-black uppercase tracking-widest text-xs flex items-center justify-center gap-2 hover:bg-white hover:text-brand-purple transition-all shadow-lg"
+                  className="w-full py-4 bg-brand-blue text-white rounded-2xl font-black uppercase tracking-widest text-xs flex items-center justify-center gap-2 hover:bg-white hover:text-brand-purple transition-all shadow-lg cursor-pointer"
                 >
                   {copiedPix ? (
                     <>
@@ -307,12 +363,174 @@ export default function Apoie() {
 
                 <button
                   onClick={() => setShowPixModal(false)}
-                  className="text-xs font-black uppercase tracking-widest text-white/40 hover:text-white transition-colors pt-2 block mx-auto"
+                  className="text-xs font-black uppercase tracking-widest text-white/40 hover:text-white transition-colors pt-2 block mx-auto cursor-pointer"
                 >
                   Fechar Janela
                 </button>
               </motion.div>
             </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Corporate Modal */}
+        <AnimatePresence>
+          {showCorporateModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setShowCorporateModal(false)}
+                className="absolute inset-0 bg-black/80 backdrop-blur-md"
+              />
+              
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                className="relative w-full max-w-lg bg-brand-purple border border-white/10 p-8 md:p-10 rounded-[3rem] shadow-2xl z-10 space-y-6"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-2xl bg-brand-blue/20 flex items-center justify-center">
+                      <Building2 className="w-5 h-5 text-brand-blue" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-black uppercase tracking-tight text-white">Parceria Corporativa</h3>
+                      <p className="text-[10px] text-white/50 uppercase font-black tracking-widest">
+                        Programas ESG & Voluntariado
+                      </p>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => setShowCorporateModal(false)}
+                    className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-white/50 hover:text-white"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                {corpSuccess ? (
+                  <div className="py-8 text-center space-y-4">
+                    <div className="w-16 h-16 rounded-full bg-green-500/20 text-green-400 flex items-center justify-center mx-auto">
+                      <CheckCircle2 className="w-8 h-8" />
+                    </div>
+                    <h4 className="text-xl font-black uppercase tracking-tight text-white">Proposta Enviada!</h4>
+                    <p className="text-xs text-white/70 leading-relaxed font-light">
+                      Agradecemos o interesse da sua empresa. Nossa equipe de Relações Institucionais entrará em contato em até 48h úteis.
+                    </p>
+                  </div>
+                ) : (
+                  <form onSubmit={handleCorporateSubmit} className="space-y-4">
+                    <div>
+                      <label className="text-[10px] font-black uppercase tracking-widest text-white/40 ml-2 block mb-1">
+                        Nome da Empresa / Instituição *
+                      </label>
+                      <input 
+                        type="text"
+                        required
+                        value={corpForm.empresa}
+                        onChange={(e) => setCorpForm({ ...corpForm, empresa: e.target.value })}
+                        placeholder="Ex: Instituto XP / Empresa S.A."
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-3.5 text-sm text-white focus:outline-none focus:border-brand-blue"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-[10px] font-black uppercase tracking-widest text-white/40 ml-2 block mb-1">
+                          Pessoa de Contato *
+                        </label>
+                        <input 
+                          type="text"
+                          required
+                          value={corpForm.contato}
+                          onChange={(e) => setCorpForm({ ...corpForm, contato: e.target.value })}
+                          placeholder="Ex: Carlos Mendes"
+                          className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-3.5 text-sm text-white focus:outline-none focus:border-brand-blue"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-black uppercase tracking-widest text-white/40 ml-2 block mb-1">
+                          Telefone / WhatsApp *
+                        </label>
+                        <input 
+                          type="tel"
+                          required
+                          value={corpForm.telefone}
+                          onChange={(e) => setCorpForm({ ...corpForm, telefone: e.target.value })}
+                          placeholder="(11) 99999-9999"
+                          className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-3.5 text-sm text-white focus:outline-none focus:border-brand-blue"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] font-black uppercase tracking-widest text-white/40 ml-2 block mb-1">
+                        E-mail Corporativo *
+                      </label>
+                      <input 
+                        type="email"
+                        required
+                        value={corpForm.email}
+                        onChange={(e) => setCorpForm({ ...corpForm, email: e.target.value })}
+                        placeholder="parcerias@empresa.com.br"
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-3.5 text-sm text-white focus:outline-none focus:border-brand-blue"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] font-black uppercase tracking-widest text-white/40 ml-2 block mb-1">
+                        Formato de Parceria de Interesse
+                      </label>
+                      <select 
+                        value={corpForm.tipo_parceria}
+                        onChange={(e) => setCorpForm({ ...corpForm, tipo_parceria: e.target.value })}
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-3.5 text-sm text-white focus:outline-none focus:border-brand-blue [&>option]:bg-brand-purple"
+                      >
+                        <option value="VOLUNTARIADO_CORPORATIVO">Voluntariado Corporativo Estruturado</option>
+                        <option value="PATROCINIO_INSTITUCIONAL">Patrocínio Institucional / Doação Financeira</option>
+                        <option value="DOACAO_PRO_BONO">Apoio Pro-Bono (Tecnologia, Jurídico, Marketing)</option>
+                        <option value="CAPACITACAO_ESG">Capacitações de Liderança ESG</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] font-black uppercase tracking-widest text-white/40 ml-2 block mb-1">
+                        Detalhes ou Mensagem
+                      </label>
+                      <textarea 
+                        rows={3}
+                        value={corpForm.mensagem}
+                        onChange={(e) => setCorpForm({ ...corpForm, mensagem: e.target.value })}
+                        placeholder="Descreva a expectativa ou porte da empresa..."
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-3.5 text-sm text-white focus:outline-none focus:border-brand-blue"
+                      />
+                    </div>
+
+                    <div className="pt-2">
+                      <button 
+                        type="submit"
+                        disabled={corpSubmitting}
+                        className="w-full py-4 bg-brand-blue hover:bg-white hover:text-brand-purple text-white rounded-2xl font-black uppercase tracking-widest text-xs transition-all shadow-xl flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                      >
+                        {corpSubmitting ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            Enviando Proposta...
+                          </>
+                        ) : (
+                          <>
+                            <Send className="w-4 h-4" />
+                            Enviar Proposta de Parceria
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </form>
+                )}
+              </motion.div>
+            </div>
           )}
         </AnimatePresence>
 

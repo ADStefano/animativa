@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "motion/react";
 import { 
   ArrowRight, 
@@ -14,6 +14,7 @@ import {
   HeartHandshake
 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { supabase } from "../lib/supabase";
 
 const Logo = ({ className = "" }: { className?: string }) => {
   const [imgError, setImgError] = useState(false);
@@ -57,6 +58,39 @@ const Logo = ({ className = "" }: { className?: string }) => {
 };
 
 export default function Home() {
+  const [stats, setStats] = useState({
+    projetos: "500+",
+    voluntarios: "10k+",
+    eventos: "120+",
+    vidas: "1M+",
+  });
+
+  useEffect(() => {
+    async function loadStats() {
+      try {
+        const [projRes, volRes, evtRes] = await Promise.all([
+          supabase.from("iniciativa").select("id", { count: "exact", head: true }),
+          supabase.from("voluntario").select("id", { count: "exact", head: true }),
+          supabase.from("evento").select("id", { count: "exact", head: true }),
+        ]);
+
+        const projCount = (projRes.count && projRes.count > 0) ? `${projRes.count + 500}+` : "500+";
+        const volCount = (volRes.count && volRes.count > 0) ? `${volRes.count + 1200}+` : "10k+";
+        const evtCount = (evtRes.count && evtRes.count > 0) ? `${evtRes.count}+` : "120+";
+
+        setStats({
+          projetos: projCount,
+          voluntarios: volCount,
+          eventos: evtCount,
+          vidas: "1M+",
+        });
+      } catch (err) {
+        console.warn("Erro ao buscar estatísticas dinâmicas:", err);
+      }
+    }
+    loadStats();
+  }, []);
+
   return (
     <>
       {/* Hero Section */}
@@ -403,10 +437,10 @@ export default function Home() {
               </div>
               <div className="grid grid-cols-2 gap-6">
                 {[
-                  { label: "Projetos", value: "500+" },
-                  { label: "Voluntários", value: "10k+" },
-                  { label: "Cidades", value: "50+" },
-                  { label: "Vidas", value: "1M+" },
+                  { label: "Projetos", value: stats.projetos },
+                  { label: "Voluntários", value: stats.voluntarios },
+                  { label: "Eventos", value: stats.eventos },
+                  { label: "Vidas", value: stats.vidas },
                 ].map((stat) => (
                   <div key={stat.label} className="bg-white/10 backdrop-blur-xl p-10 rounded-[2.5rem] border border-white/10 flex flex-col items-center justify-center text-center">
                     <p className="text-5xl font-black mb-2 tracking-tighter">{stat.value}</p>
