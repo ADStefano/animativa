@@ -49,7 +49,7 @@ export default function Projetos() {
           category: item.setor_sociedade || "Impacto Social",
           location: item.cidade ? `${item.cidade}${item.uf ? `, ${item.uf}` : ""}` : "Brasil",
           volunteers: Math.floor(Math.random() * 15) + 5, // Estimativa dinâmica
-          image: item.image || "https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?auto=format&fit=crop&q=80&w=800",
+          image: item.iniciativa_foto || item.image || "https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?auto=format&fit=crop&q=80&w=800",
           description: item.impacto_iniciativa || item.proposito_iniciativa || "Iniciativa cadastrada na rede Animativa.",
           isFromDb: true,
         }));

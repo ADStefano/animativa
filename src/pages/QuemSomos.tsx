@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { motion } from "motion/react";
 import { 
   History, 
@@ -15,8 +15,10 @@ import {
   Sparkles,
   Smile,
   ShieldCheck,
-  Zap
+  Zap,
+  Tag
 } from "lucide-react";
+import { supabase } from "../lib/supabase";
 
 interface TeamMemberProps {
   key?: React.Key;
@@ -43,35 +45,63 @@ const TeamMember = ({ name, role, bio, image }: TeamMemberProps) => (
   </motion.div>
 );
 
+const DEFAULT_PHOTOS = [
+  { url: "https://images.unsplash.com/photo-1511795409834-ef04bbd61622?auto=format&fit=crop&q=80&w=1000", legenda: "Encontro Anual de Líderes Comunitários", categoria: "Eventos" },
+  { url: "https://images.unsplash.com/photo-1540575861501-7ad060e39fe1?auto=format&fit=crop&q=80&w=800", legenda: "Oficinas de Co-Criação e Inovação Social", categoria: "Oficinas" },
+  { url: "https://images.unsplash.com/photo-1529156069898-49953e39b3ac?auto=format&fit=crop&q=80&w=800", legenda: "Rede de Voluntários em Ação no Território", categoria: "Comunidade" },
+  { url: "https://images.unsplash.com/photo-1531206715517-5c0ba140b2b8?auto=format&fit=crop&q=80&w=800", legenda: "Laboratório Criativo e Design de Soluções", categoria: "Inovação" },
+  { url: "https://images.unsplash.com/photo-1517048676732-d65bc937f952?auto=format&fit=crop&q=80&w=800", legenda: "Planejamento Estratégico do Terceiro Setor", categoria: "Gestão" },
+  { url: "https://images.unsplash.com/photo-1552664730-d307ca884978?auto=format&fit=crop&q=80&w=800", legenda: "Celebração das Metas Atingidas", categoria: "Comunidade" }
+];
+
 export default function QuemSomos() {
+  const [galleryPhotos, setGalleryPhotos] = useState<Array<{ id?: number; url: string; legenda?: string; categoria?: string }>>(DEFAULT_PHOTOS);
+
+  useEffect(() => {
+    fetchAnimativaPhotos();
+  }, []);
+
+  const fetchAnimativaPhotos = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("animativa_foto")
+        .select("*")
+        .order("ordem", { ascending: true })
+        .order("created_at", { ascending: false });
+
+      if (data && data.length > 0 && !error) {
+        const mapped = data.map((item) => ({
+          id: item.id,
+          url: item.storage_path || item.url || item.nome_arquivo,
+          legenda: item.legenda || "Ação Animativa",
+          categoria: item.categoria || "Galeria",
+        }));
+        setGalleryPhotos(mapped);
+      }
+    } catch (err) {
+      console.warn("Erro ao buscar fotos da Animativa:", err);
+    }
+  };
+
   const team = [
     {
       name: "Ana Oliveira",
       role: "Fundadora & Diretora Criativa",
       bio: "Apaixonada por impacto social e design, Ana fundou a Animativa com o sonho de conectar talentos a causas urgentes.",
-      image: "https://picsum.photos/seed/ana/400/400"
+      image: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=400"
     },
     {
       name: "Carlos Mendes",
       role: "Coordenador de Projetos",
       bio: "Especialista em gestão do terceiro setor, Carlos garante que cada iniciativa alcance seu potencial máximo de transformação.",
-      image: "https://picsum.photos/seed/carlos/400/400"
+      image: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=400"
     },
     {
       name: "Marina Souza",
       role: "Líder de Comunidade",
       bio: "Marina é a ponte entre nossos voluntários e as necessidades reais das comunidades que atendemos.",
-      image: "https://picsum.photos/seed/marina/400/400"
+      image: "https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&q=80&w=400"
     }
-  ];
-
-  const photos = [
-    "https://picsum.photos/seed/animativa1/800/600",
-    "https://picsum.photos/seed/animativa2/800/600",
-    "https://picsum.photos/seed/animativa3/800/600",
-    "https://picsum.photos/seed/animativa4/800/600",
-    "https://picsum.photos/seed/animativa5/800/600",
-    "https://picsum.photos/seed/animativa6/800/600"
   ];
 
   return (
@@ -323,23 +353,44 @@ export default function QuemSomos() {
       {/* Álbum de Fotos Section */}
       <section className="py-24">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-4 mb-16">
-            <div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center">
-              <ImageIcon className="w-6 h-6 text-white/40" />
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-16">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center">
+                <ImageIcon className="w-6 h-6 text-brand-orange" />
+              </div>
+              <div>
+                <h2 className="text-3xl font-black uppercase tracking-tighter">Álbum de Fotos</h2>
+                <p className="text-xs text-white/50">Registros visuais de encontros, formações e ações de campo da Animativa.</p>
+              </div>
             </div>
-            <h2 className="text-3xl font-black uppercase tracking-tighter">Álbum de Fotos</h2>
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-8">
-            {photos.map((photo, i) => (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+            {galleryPhotos.map((photo, i) => (
               <motion.div 
-                key={i}
-                whileHover={{ scale: 1.02 }}
-                className={`relative rounded-3xl overflow-hidden border border-white/10 aspect-square ${
-                  i === 0 ? "md:col-span-2 md:row-span-2 md:aspect-auto" : ""
+                key={photo.id || i}
+                whileHover={{ scale: 1.02, y: -4 }}
+                className={`relative rounded-3xl overflow-hidden border border-white/10 aspect-square group shadow-xl ${
+                  i === 0 ? "sm:col-span-2 md:row-span-2 md:aspect-auto min-h-[320px]" : ""
                 }`}
               >
-                <img src={photo} alt={`Foto ${i + 1}`} className="w-full h-full object-cover hover:scale-110 transition-transform duration-700" referrerPolicy="no-referrer" />
+                <img 
+                  src={photo.url} 
+                  alt={photo.legenda || `Foto Animativa ${i + 1}`} 
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" 
+                  referrerPolicy="no-referrer" 
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-brand-purple via-brand-purple/20 to-transparent opacity-80 group-hover:opacity-90 transition-opacity" />
+                <div className="absolute bottom-0 left-0 right-0 p-6 flex flex-col justify-end">
+                  {photo.categoria && (
+                    <span className="text-[9px] font-black uppercase tracking-widest text-brand-orange mb-1">
+                      {photo.categoria}
+                    </span>
+                  )}
+                  <h4 className="text-sm md:text-base font-bold text-white leading-snug drop-shadow-md">
+                    {photo.legenda}
+                  </h4>
+                </div>
               </motion.div>
             ))}
           </div>

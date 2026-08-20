@@ -162,7 +162,7 @@ export default function ProjetoDetalhes() {
             category: data.setor_sociedade || "Impacto Social",
             location: data.cidade ? `${data.cidade}${data.uf ? `, ${data.uf}` : ""}` : "Brasil",
             volunteers: 12,
-            image: data.image || "https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?auto=format&fit=crop&q=80&w=800",
+            image: data.iniciativa_foto || data.image || "https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?auto=format&fit=crop&q=80&w=800",
             description: data.impacto_iniciativa || data.proposito_iniciativa || "Iniciativa cadastrada na rede Animativa.",
             impact: data.impacto_iniciativa || "Iniciativa atuando no fortalecimento comunitário e desenvolvimento local.",
             skills: data.habilidades_exigidas || "Voluntários com vontade de aprender e colaborar com a causa.",

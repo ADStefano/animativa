@@ -21,6 +21,7 @@ import {
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { supabase } from "../lib/supabase";
+import ImageUpload from "../components/ImageUpload";
 
 export default function Iniciativas() {
   const { user, profile } = useAuth();
@@ -40,6 +41,7 @@ export default function Iniciativas() {
     email: "",
     setor_sociedade: "Educação",
     data_criacao_iniciativa: new Date().toISOString().split("T")[0],
+    iniciativa_foto: "",
     cidade: "",
     uf: "SP",
     cep: "",
@@ -172,6 +174,7 @@ export default function Iniciativas() {
         email: formData.email.trim().toLowerCase(),
         setor_sociedade: formData.setor_sociedade,
         data_criacao_iniciativa: formData.data_criacao_iniciativa || new Date().toISOString().split("T")[0],
+        iniciativa_foto: formData.iniciativa_foto.trim() || null,
         cep: formData.cep.trim().replace(/\D/g, "") || null,
         rua: formData.rua.trim() || null,
         numero: formData.numero.trim() || null,
@@ -217,6 +220,7 @@ export default function Iniciativas() {
       setFormData((prev) => ({
         ...prev,
         nome: "",
+        iniciativa_foto: "",
         cidade: "",
         rua: "",
         numero: "",
@@ -504,6 +508,21 @@ export default function Iniciativas() {
                       placeholder="contato@projeto.org" 
                     />
                   </div>
+
+                  {/* Foto de Capa da Iniciativa */}
+                  <div className="md:col-span-2">
+                    <ImageUpload
+                      label="Foto de Capa da Iniciativa"
+                      helperText="Envie a foto ou logo que representa o projeto (até 5MB)"
+                      currentImageUrl={formData.iniciativa_foto}
+                      bucket="iniciativas"
+                      folder={formData.nome ? `iniciativa_${formData.nome.toLowerCase().replace(/[^a-z0-9]/g, '_')}` : 'geral'}
+                      shape="rectangle"
+                      aspectRatio="aspect-[21/9]"
+                      onImageUploaded={(url) => setFormData((prev) => ({ ...prev, iniciativa_foto: url }))}
+                      onImageRemoved={() => setFormData((prev) => ({ ...prev, iniciativa_foto: "" }))}
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -681,7 +700,7 @@ export default function Iniciativas() {
                   className="group relative h-72 rounded-[2.5rem] overflow-hidden border border-white/10 cursor-pointer"
                 >
                   <img 
-                    src={initiative.image || "https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?auto=format&fit=crop&q=80&w=600"} 
+                    src={initiative.iniciativa_foto || initiative.image || "https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?auto=format&fit=crop&q=80&w=600"} 
                     alt={initiative.nome} 
                     className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                     referrerPolicy="no-referrer"

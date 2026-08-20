@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { 
   User, 
@@ -15,22 +15,28 @@ import {
   Plus,
   Loader2,
   Building,
-  HandHeart
+  HandHeart,
+  Camera,
+  Upload,
+  RefreshCw
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { supabase } from "../lib/supabase";
 import { ShieldCheck } from "lucide-react";
+import { uploadProfilePhoto, validateImageFile } from "../lib/storage";
 
 export default function Perfil() {
   const navigate = useNavigate();
   const { user, profile, isAdmin, signOut, refreshProfile } = useAuth();
+  const avatarInputRef = useRef<HTMLInputElement>(null);
   
   // Form states
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [volunteerStatus, setVolunteerStatus] = useState<string | null>(null);
   const [isVolunteer, setIsVolunteer] = useState<boolean | null>(null);
   const [userInitiatives, setUserInitiatives] = useState<any[]>([]);
@@ -128,6 +134,64 @@ export default function Perfil() {
     }
   };
 
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || !e.target.files[0] || !user) return;
+    const file = e.target.files[0];
+    
+    const validation = validateImageFile(file);
+    if (!validation.valid) {
+      triggerNotif(validation.error || "Arquivo de imagem inválido.", "error");
+      return;
+    }
+
+    setUploadingAvatar(true);
+    try {
+      // 1. Upload para o Supabase Storage
+      const result = await uploadProfilePhoto(file, user.id);
+      if (result.error) {
+        throw new Error(result.error);
+      }
+
+      const newAvatarUrl = result.url;
+
+      // 2. Atualiza metadados do Auth
+      await supabase.auth.updateUser({
+        data: { avatar_url: newAvatarUrl }
+      });
+
+      // 3. Atualiza tabela usuario
+      if (profile?.id) {
+        await supabase
+          .from('usuario')
+          .update({ 
+            foto_perfil: newAvatarUrl,
+            updated_at: new Date().toISOString() 
+          })
+          .eq('id', profile.id);
+      } else {
+        await supabase
+          .from('usuario')
+          .upsert({
+            auth_user_id: user.id,
+            email: user.email,
+            nome: name || user.email?.split('@')[0] || 'Usuário',
+            foto_perfil: newAvatarUrl
+          });
+      }
+
+      await refreshProfile();
+      triggerNotif("Foto de perfil atualizada com sucesso!");
+    } catch (err: any) {
+      console.error("Erro ao atualizar foto de perfil:", err);
+      triggerNotif(err?.message || "Não foi possível salvar a foto de perfil.", "error");
+    } finally {
+      setUploadingAvatar(false);
+      if (avatarInputRef.current) {
+        avatarInputRef.current.value = "";
+      }
+    }
+  };
+
   const handleLogout = async () => {
     try {
       await signOut();
@@ -196,18 +260,47 @@ export default function Perfil() {
           <div className="lg:col-span-5 space-y-8">
             {/* Quick Profile Stat Card */}
             <div className="bg-white/5 border border-white/10 p-8 rounded-[3rem] relative overflow-hidden flex flex-col sm:flex-row items-center gap-6">
-              <div className="relative shrink-0">
+              <div className="relative shrink-0 group">
+                <input
+                  ref={avatarInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  onChange={handleAvatarChange}
+                  className="hidden"
+                />
                 <img 
                   src={avatarUrl} 
                   alt={displayName} 
-                  className="w-20 h-20 rounded-full object-cover border-2 border-brand-orange shadow-lg"
+                  className="w-20 h-20 rounded-full object-cover border-2 border-brand-orange shadow-lg transition-transform group-hover:scale-105"
                   referrerPolicy="no-referrer"
                 />
-                <div className="absolute bottom-0 right-0 w-6 h-6 bg-brand-blue rounded-full border-2 border-brand-purple flex items-center justify-center">
-                  <Check className="w-3 h-3 text-white" />
+                
+                {uploadingAvatar ? (
+                  <div className="absolute inset-0 bg-black/70 rounded-full flex items-center justify-center">
+                    <Loader2 className="w-6 h-6 text-brand-orange animate-spin" />
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => avatarInputRef.current?.click()}
+                    title="Alterar foto de perfil"
+                    className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 rounded-full flex flex-col items-center justify-center transition-all cursor-pointer backdrop-blur-[1px]"
+                  >
+                    <Camera className="w-5 h-5 text-white mb-0.5" />
+                    <span className="text-[8px] font-black uppercase tracking-wider text-white">Alterar</span>
+                  </button>
+                )}
+
+                <div 
+                  onClick={() => avatarInputRef.current?.click()}
+                  className="absolute bottom-0 right-0 w-7 h-7 bg-brand-orange hover:bg-brand-blue rounded-full border-2 border-brand-purple flex items-center justify-center cursor-pointer transition-colors shadow-md"
+                  title="Upload de Foto"
+                >
+                  <Camera className="w-3.5 h-3.5 text-white" />
                 </div>
               </div>
-              <div className="text-center sm:text-left">
+
+              <div className="text-center sm:text-left flex-1">
                 <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
                   <span className="text-[10px] font-black uppercase tracking-widest text-brand-orange">
                     Conta Supabase
@@ -229,6 +322,15 @@ export default function Perfil() {
                 </div>
                 <h3 className="text-2xl font-black uppercase tracking-tighter text-white mt-1">{displayName}</h3>
                 <p className="text-xs text-white/50">{user?.email}</p>
+                <button
+                  type="button"
+                  onClick={() => avatarInputRef.current?.click()}
+                  disabled={uploadingAvatar}
+                  className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-brand-orange hover:text-white mt-2 transition-colors cursor-pointer"
+                >
+                  <Upload className="w-3 h-3" />
+                  {uploadingAvatar ? "Enviando foto..." : "Trocar foto de perfil"}
+                </button>
               </div>
             </div>
 

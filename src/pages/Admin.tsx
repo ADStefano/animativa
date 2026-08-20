@@ -32,13 +32,19 @@ import {
   ExternalLink,
   Phone,
   Mail,
-  MapPin
+  MapPin,
+  Database,
+  HardDrive,
+  CheckCircle,
+  FolderOpen
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { supabase } from "../lib/supabase";
+import ImageUpload from "../components/ImageUpload";
+import { BUCKET_NAMES, testStorageBuckets, StorageTestResult } from "../lib/storage";
 
-type Tab = "dashboard" | "iniciativas" | "voluntarios" | "projetos" | "eventos" | "usuarios" | "configuracoes" | "parceiros" | "solicitacoes";
+type Tab = "dashboard" | "iniciativas" | "voluntarios" | "projetos" | "eventos" | "usuarios" | "configuracoes" | "parceiros" | "solicitacoes" | "midia";
 
 interface ToastInfo {
   id: string;
@@ -167,6 +173,9 @@ export default function Admin() {
   const [usuarios, setUsuarios] = useState<any[]>([]);
   const [eventos, setEventos] = useState<any[]>([]);
   const [parceiros, setParceiros] = useState<any[]>([]);
+  const [animativaFotos, setAnimativaFotos] = useState<any[]>([]);
+  const [storageTestResults, setStorageTestResults] = useState<Record<string, StorageTestResult>>({});
+  const [isTestingStorage, setIsTestingStorage] = useState(false);
 
   // Config fields
   const [projectCategories, setProjectCategories] = useState([
@@ -181,6 +190,25 @@ export default function Admin() {
 
   const [editingItem, setEditingItem] = useState<{ type: Tab; data: any; isNew?: boolean } | null>(null);
   const [managingConfig, setManagingConfig] = useState<{ id: string; label: string; items: string[] } | null>(null);
+
+  // Storage Bucket Diagnostic Tester
+  const handleTestStorage = async () => {
+    setIsTestingStorage(true);
+    try {
+      const resultsList = await testStorageBuckets();
+      const resultsMap: Record<string, StorageTestResult> = {};
+      for (const item of resultsList) {
+        resultsMap[item.bucket] = item;
+      }
+      setStorageTestResults(resultsMap);
+      addToast("success", "Diagnóstico de Storage concluído com sucesso!");
+    } catch (err: any) {
+      console.error("Erro no teste de storage:", err);
+      addToast("error", "Erro ao executar diagnóstico de storage.");
+    } finally {
+      setIsTestingStorage(false);
+    }
+  };
 
   // Fetch all real data from Supabase
   const loadAllData = useCallback(async () => {
@@ -245,6 +273,25 @@ export default function Admin() {
           { id: 1, nome: "Instituto Cooperar", foto_parceiro: "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&q=80&w=150", tipo: "PARCEIRO", link: "https://cooperar.org" },
           { id: 2, nome: "Fundação Educar", foto_parceiro: "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&q=80&w=150", tipo: "APOIADOR", link: "https://educar.org" },
           { id: 3, nome: "União Social", foto_parceiro: "https://images.unsplash.com/photo-1552664730-d307ca884978?auto=format&fit=crop&q=80&w=150", tipo: "APOIADOR", link: "https://uniaosocial.org" },
+        ]);
+      }
+
+      // 6. Galeria e Fotos da Animativa
+      const { data: midiaData, error: midiaErr } = await supabase
+        .from("animativa_foto")
+        .select("*")
+        .order("ordem", { ascending: true })
+        .order("created_at", { ascending: false });
+
+      if (midiaErr) console.warn("Erro ao buscar fotos da Animativa:", midiaErr);
+      if (midiaData && midiaData.length > 0) {
+        setAnimativaFotos(midiaData);
+      } else {
+        setAnimativaFotos([
+          { id: 1, nome_arquivo: "encontro-lideres.jpg", storage_path: "https://images.unsplash.com/photo-1511795409834-ef04bbd61622?auto=format&fit=crop&q=80&w=1000", legenda: "Encontro Anual de Líderes Comunitários", categoria: "Eventos", destaque: true, ordem: 1 },
+          { id: 2, nome_arquivo: "oficina-cocriacao.jpg", storage_path: "https://images.unsplash.com/photo-1540575861501-7ad060e39fe1?auto=format&fit=crop&q=80&w=800", legenda: "Oficinas de Co-Criação e Inovação Social", categoria: "Oficinas", destaque: false, ordem: 2 },
+          { id: 3, nome_arquivo: "voluntarios-campo.jpg", storage_path: "https://images.unsplash.com/photo-1529156069898-49953e39b3ac?auto=format&fit=crop&q=80&w=800", legenda: "Rede de Voluntários em Ação no Território", categoria: "Comunidade", destaque: false, ordem: 3 },
+          { id: 4, nome_arquivo: "lab-criativo.jpg", storage_path: "https://images.unsplash.com/photo-1531206715517-5c0ba140b2b8?auto=format&fit=crop&q=80&w=800", legenda: "Laboratório Criativo e Design de Soluções", categoria: "Inovação", destaque: false, ordem: 4 },
         ]);
       }
     } catch (err: any) {
@@ -443,6 +490,25 @@ export default function Admin() {
     }
   };
 
+  const handleDeleteFoto = async (id: number, name?: string) => {
+    if (!confirm(`Deseja realmente excluir a foto "${name || id}" da Galeria?`)) return;
+    try {
+      const { error } = await supabase
+        .from("animativa_foto")
+        .delete()
+        .eq("id", id);
+
+      if (error) {
+        console.warn("Erro ao deletar do Supabase, removendo localmente:", error);
+      }
+      setAnimativaFotos(prev => prev.filter(f => f.id !== id));
+      addToast("success", "Foto removida da Galeria Animativa.");
+    } catch (err: any) {
+      console.error("Erro ao remover foto:", err);
+      addToast("error", "Erro ao excluir foto.");
+    }
+  };
+
   // 4. Save Modal Handler (Persist to Supabase)
   const handleSaveModal = async () => {
     if (!editingItem) return;
@@ -461,6 +527,7 @@ export default function Admin() {
           proposito_iniciativa: data.proposito_iniciativa || null,
           impacto_iniciativa: data.impacto_iniciativa || null,
           site: data.site || null,
+          iniciativa_foto: data.iniciativa_foto || null,
           updated_at: new Date().toISOString(),
         };
 
@@ -543,6 +610,7 @@ export default function Admin() {
           local: data.local || data.location || "Online",
           tipo: data.tipo || data.type || "Online",
           status: data.status || "Ativo",
+          imagem_path: data.imagem_path || null,
           updated_at: new Date().toISOString(),
         };
 
@@ -609,6 +677,43 @@ export default function Admin() {
           }
           addToast("success", "Parceiro atualizado com sucesso!");
         }
+      } else if (type === "midia") {
+        const payload: any = {
+          nome_arquivo: data.nome_arquivo || "foto_animativa.jpg",
+          storage_path: data.storage_path || data.url || "",
+          legenda: data.legenda || "Ação Animativa",
+          categoria: data.categoria || "Institucional",
+          ordem: Number(data.ordem) || 1,
+          destaque: Boolean(data.destaque),
+          updated_at: new Date().toISOString(),
+        };
+
+        if (isNew) {
+          const { data: inserted, error } = await supabase
+            .from("animativa_foto")
+            .insert(payload)
+            .select()
+            .single();
+
+          if (error) {
+            setAnimativaFotos(prev => [{ id: Date.now(), ...payload }, ...prev]);
+          } else {
+            setAnimativaFotos(prev => [inserted, ...prev]);
+          }
+          addToast("success", "Foto adicionada à Galeria Animativa com sucesso!");
+        } else {
+          const { error } = await supabase
+            .from("animativa_foto")
+            .update(payload)
+            .eq("id", data.id);
+
+          if (error) {
+            setAnimativaFotos(prev => prev.map(f => f.id === data.id ? { ...f, ...payload } : f));
+          } else {
+            setAnimativaFotos(prev => prev.map(f => f.id === data.id ? { ...f, ...payload } : f));
+          }
+          addToast("success", "Foto atualizada com sucesso!");
+        }
       }
 
       setEditingItem(null);
@@ -665,6 +770,7 @@ export default function Admin() {
     { id: "projetos", label: "Projetos", icon: Briefcase, count: iniciativas.length },
     { id: "eventos", label: "Eventos", icon: Calendar, count: eventos.length },
     { id: "usuarios", label: "Usuários", icon: User, count: usuarios.length },
+    { id: "midia", label: "Galeria & Storage", icon: ImageIcon, count: animativaFotos.length },
     { id: "configuracoes", label: "Configurações", icon: Settings },
   ];
 
@@ -1564,7 +1670,170 @@ export default function Admin() {
               </div>
             )}
 
-            {/* 8. CONFIGURAÇÕES & PARCEIROS */}
+            {/* 8. GALERIA INSTITUCIONAL & STORAGE */}
+            {activeTab === "midia" && (
+              <div className="space-y-10">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                  <div>
+                    <h2 className="text-2xl font-black uppercase tracking-tighter">Galeria & Storage Supabase</h2>
+                    <p className="text-xs text-white/40 uppercase tracking-widest mt-1">
+                      Gerenciamento de fotos da Animativa (`animativa_foto`) e integridade de buckets
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-3">
+                    <button
+                      onClick={handleTestStorage}
+                      disabled={isTestingStorage}
+                      className="flex items-center gap-2 px-5 py-3 bg-white/5 border border-white/10 hover:border-brand-blue text-white rounded-xl font-black uppercase tracking-widest text-[10px] transition-all disabled:opacity-50"
+                    >
+                      {isTestingStorage ? (
+                        <Loader2 className="w-4 h-4 animate-spin text-brand-blue" />
+                      ) : (
+                        <HardDrive className="w-4 h-4 text-brand-blue" />
+                      )}
+                      Testar Buckets de Storage
+                    </button>
+                    <button
+                      onClick={() => setEditingItem({
+                        type: "midia",
+                        data: {
+                          nome_arquivo: "",
+                          storage_path: "",
+                          legenda: "",
+                          categoria: "Institucional",
+                          ordem: animativaFotos.length + 1,
+                          destaque: false,
+                        },
+                        isNew: true,
+                      })}
+                      className="flex items-center gap-2 px-6 py-3 bg-brand-orange text-white rounded-xl font-black uppercase tracking-widest text-[10px] hover:bg-white hover:text-brand-purple transition-all shadow-lg"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Nova Foto
+                    </button>
+                  </div>
+                </div>
+
+                {/* Storage Diagnostics Banner */}
+                <div className="p-6 bg-white/[0.03] border border-white/10 rounded-[2rem]">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-lg bg-brand-blue/10 text-brand-blue">
+                        <Database className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-black uppercase tracking-tighter">Status dos Buckets Supabase</h3>
+                        <p className="text-[10px] text-white/40 uppercase tracking-widest">Diagnóstico de escrita e leitura pública</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+                    {[
+                      { key: "avatars", name: "Avatars (Perfil)", desc: "Fotos de usuários" },
+                      { key: "iniciativas", name: "Iniciativas", desc: "Capas de projetos" },
+                      { key: "eventos", name: "Eventos", desc: "Banners de eventos" },
+                      { key: "animativa", name: "Animativa", desc: "Galeria institucional" },
+                      { key: "parceiros", name: "Parceiros", desc: "Logotipos" },
+                    ].map((b) => {
+                      const res = storageTestResults[b.key];
+                      return (
+                        <div key={b.key} className="p-4 bg-white/5 border border-white/5 rounded-2xl flex flex-col justify-between">
+                          <div>
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-xs font-black uppercase tracking-tight text-white">{b.name}</span>
+                              {res ? (
+                                res.status === "ok" ? (
+                                  <span className="w-2.5 h-2.5 rounded-full bg-green-500 shadow-sm shadow-green-500/50" title="Bucket operacional" />
+                                ) : (
+                                  <span className="w-2.5 h-2.5 rounded-full bg-amber-500" title="Aviso no bucket" />
+                                )
+                              ) : (
+                                <span className="w-2.5 h-2.5 rounded-full bg-white/20" title="Não testado" />
+                              )}
+                            </div>
+                            <p className="text-[9px] text-white/40 uppercase tracking-widest">{b.desc}</p>
+                          </div>
+
+                          <div className="mt-3 pt-2 border-t border-white/5">
+                            {res ? (
+                              <p className={`text-[9px] font-mono ${res.status === "ok" ? "text-green-400" : "text-amber-300"} truncate`}>
+                                {res.message}
+                              </p>
+                            ) : (
+                              <p className="text-[9px] font-mono text-white/30">Pronto para teste</p>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Gallery Items Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                  {animativaFotos.map((foto) => (
+                    <div 
+                      key={foto.id} 
+                      className="bg-white/5 border border-white/10 rounded-[2rem] overflow-hidden group hover:border-brand-orange transition-all flex flex-col justify-between"
+                    >
+                      <div className="relative aspect-[4/3] bg-black/40 overflow-hidden">
+                        <img 
+                          src={foto.storage_path || foto.url || "https://images.unsplash.com/photo-1511795409834-ef04bbd61622?auto=format&fit=crop&q=80&w=800"} 
+                          alt={foto.legenda || "Foto da Animativa"} 
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                          referrerPolicy="no-referrer"
+                        />
+                        <div className="absolute top-3 left-3 flex gap-2">
+                          <span className="px-2.5 py-1 bg-black/70 backdrop-blur-md rounded-lg text-[9px] font-black uppercase tracking-widest text-white border border-white/10">
+                            {foto.categoria || "Geral"}
+                          </span>
+                          {foto.destaque && (
+                            <span className="px-2.5 py-1 bg-brand-orange text-white rounded-lg text-[9px] font-black uppercase tracking-widest">
+                              Destaque
+                            </span>
+                          )}
+                        </div>
+                        <div className="absolute bottom-3 right-3">
+                          <span className="px-2 py-0.5 bg-black/60 backdrop-blur-md rounded-md text-[8px] font-mono text-white/60">
+                            Posição #{foto.ordem || 1}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
+                        <div>
+                          <h4 className="text-sm font-black uppercase tracking-tighter text-white line-clamp-2">
+                            {foto.legenda || "Sem Legenda"}
+                          </h4>
+                          <p className="text-[9px] font-mono text-white/40 mt-1 truncate">
+                            {foto.nome_arquivo || "arquivo_storage.jpg"}
+                          </p>
+                        </div>
+
+                        <div className="flex gap-2 pt-3 border-t border-white/5">
+                          <button
+                            onClick={() => setEditingItem({ type: "midia", data: foto })}
+                            className="flex-1 py-2.5 bg-white/5 hover:bg-white hover:text-brand-purple rounded-xl text-[9px] font-black uppercase tracking-widest transition-all"
+                          >
+                            Editar
+                          </button>
+                          <button
+                            onClick={() => handleDeleteFoto(foto.id, foto.legenda || foto.nome_arquivo)}
+                            className="p-2.5 bg-red-500/10 hover:bg-red-500 text-red-400 hover:text-white rounded-xl transition-all"
+                            title="Excluir foto"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* 9. CONFIGURAÇÕES & PARCEIROS */}
             {activeTab === "configuracoes" && (
               <div className="max-w-3xl space-y-12">
                 <section className="space-y-6">
@@ -1771,6 +2040,27 @@ export default function Admin() {
                       placeholder="Qual a missão e impacto principal desta iniciativa?" 
                     />
                   </FormField>
+                  <FormField label="Foto de Capa da Iniciativa (Storage)">
+                    <div className="space-y-3">
+                      <ImageUpload
+                        bucket="iniciativas"
+                        currentImageUrl={editingItem.data.iniciativa_foto}
+                        onImageUploaded={(url) => {
+                          const newData = { ...editingItem.data, iniciativa_foto: url };
+                          setEditingItem({ ...editingItem, data: newData });
+                        }}
+                      />
+                      <Input
+                        defaultValue={editingItem.data.iniciativa_foto || ""}
+                        value={editingItem.data.iniciativa_foto || ""}
+                        onChange={(e) => {
+                          const newData = { ...editingItem.data, iniciativa_foto: e.target.value };
+                          setEditingItem({ ...editingItem, data: newData });
+                        }}
+                        placeholder="Ou cole uma URL direta de imagem..."
+                      />
+                    </div>
+                  </FormField>
                 </>
               )}
 
@@ -1935,6 +2225,27 @@ export default function Admin() {
                       }}
                     />
                   </FormField>
+                  <FormField label="Banner / Foto do Evento (Storage)">
+                    <div className="space-y-3">
+                      <ImageUpload
+                        bucket="eventos"
+                        currentImageUrl={editingItem.data.imagem_path}
+                        onImageUploaded={(url) => {
+                          const newData = { ...editingItem.data, imagem_path: url };
+                          setEditingItem({ ...editingItem, data: newData });
+                        }}
+                      />
+                      <Input 
+                        defaultValue={editingItem.data.imagem_path || ""}
+                        value={editingItem.data.imagem_path || ""}
+                        onChange={(e) => {
+                          const newData = { ...editingItem.data, imagem_path: e.target.value };
+                          setEditingItem({ ...editingItem, data: newData });
+                        }}
+                        placeholder="Ou cole a URL direta da imagem..."
+                      />
+                    </div>
+                  </FormField>
                 </>
               )}
 
@@ -1976,15 +2287,113 @@ export default function Admin() {
                       />
                     </FormField>
                   </div>
-                  <FormField label="URL do Logo">
+                  <FormField label="Logotipo do Parceiro (Storage)">
+                    <div className="space-y-3">
+                      <ImageUpload
+                        bucket="parceiros"
+                        currentImageUrl={editingItem.data.foto_parceiro || editingItem.data.logo}
+                        onImageUploaded={(url) => {
+                          const newData = { ...editingItem.data, foto_parceiro: url };
+                          setEditingItem({ ...editingItem, data: newData });
+                        }}
+                      />
+                      <Input 
+                        defaultValue={editingItem.data.foto_parceiro || editingItem.data.logo || ""}
+                        value={editingItem.data.foto_parceiro || editingItem.data.logo || ""}
+                        onChange={(e) => {
+                          const newData = { ...editingItem.data, foto_parceiro: e.target.value };
+                          setEditingItem({ ...editingItem, data: newData });
+                        }}
+                        placeholder="Ou informe a URL do logo..."
+                      />
+                    </div>
+                  </FormField>
+                </>
+              )}
+
+              {/* Mídia / Galeria Animativa Form */}
+              {editingItem.type === "midia" && (
+                <>
+                  <FormField label="Legenda / Título da Foto">
                     <Input 
-                      defaultValue={editingItem.data.foto_parceiro || editingItem.data.logo}
+                      defaultValue={editingItem.data.legenda}
+                      value={editingItem.data.legenda || ""}
                       onChange={(e) => {
-                        const newData = { ...editingItem.data, foto_parceiro: e.target.value };
+                        const newData = { ...editingItem.data, legenda: e.target.value };
                         setEditingItem({ ...editingItem, data: newData });
                       }}
-                      placeholder="https://..."
+                      placeholder="Ex: Encontro da Rede em Curitiba"
                     />
+                  </FormField>
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField label="Categoria">
+                      <Select 
+                        defaultValue={editingItem.data.categoria || "Institucional"}
+                        value={editingItem.data.categoria || "Institucional"}
+                        onChange={(e) => {
+                          const newData = { ...editingItem.data, categoria: e.target.value };
+                          setEditingItem({ ...editingItem, data: newData });
+                        }}
+                      >
+                        <option value="Institucional">Institucional</option>
+                        <option value="Eventos">Eventos</option>
+                        <option value="Oficinas">Oficinas</option>
+                        <option value="Comunidade">Comunidade</option>
+                        <option value="Inovação">Inovação</option>
+                      </Select>
+                    </FormField>
+                    <FormField label="Ordem de Exibição">
+                      <Input 
+                        type="number"
+                        defaultValue={editingItem.data.ordem ?? 1}
+                        value={editingItem.data.ordem ?? 1}
+                        onChange={(e) => {
+                          const newData = { ...editingItem.data, ordem: parseInt(e.target.value, 10) || 1 };
+                          setEditingItem({ ...editingItem, data: newData });
+                        }}
+                      />
+                    </FormField>
+                  </div>
+                  <div className="flex items-center gap-3 p-3 bg-white/5 border border-white/10 rounded-xl">
+                    <input 
+                      type="checkbox"
+                      id="destaque-check"
+                      checked={Boolean(editingItem.data.destaque)}
+                      onChange={(e) => {
+                        const newData = { ...editingItem.data, destaque: e.target.checked };
+                        setEditingItem({ ...editingItem, data: newData });
+                      }}
+                      className="w-4 h-4 rounded text-brand-orange focus:ring-brand-orange bg-white/10 border-white/20"
+                    />
+                    <label htmlFor="destaque-check" className="text-xs font-bold text-white uppercase tracking-wider cursor-pointer">
+                      Destacar esta imagem na Galeria Principal
+                    </label>
+                  </div>
+                  <FormField label="Foto da Galeria (Upload para Bucket 'animativa')">
+                    <div className="space-y-3">
+                      <ImageUpload
+                        bucket="animativa"
+                        currentImageUrl={editingItem.data.storage_path || editingItem.data.url}
+                        onImageUploaded={(url) => {
+                          const fileName = url.split("/").pop() || "foto.jpg";
+                          const newData = { 
+                            ...editingItem.data, 
+                            storage_path: url,
+                            nome_arquivo: fileName
+                          };
+                          setEditingItem({ ...editingItem, data: newData });
+                        }}
+                      />
+                      <Input 
+                        defaultValue={editingItem.data.storage_path || editingItem.data.url || ""}
+                        value={editingItem.data.storage_path || editingItem.data.url || ""}
+                        onChange={(e) => {
+                          const newData = { ...editingItem.data, storage_path: e.target.value };
+                          setEditingItem({ ...editingItem, data: newData });
+                        }}
+                        placeholder="Ou URL direta da imagem..."
+                      />
+                    </div>
                   </FormField>
                 </>
               )}

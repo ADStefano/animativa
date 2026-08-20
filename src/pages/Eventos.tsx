@@ -153,7 +153,7 @@ export default function Eventos() {
             time: `${time} - ${(Number(time.split(":")[0] || 19) + 2).toString().padStart(2, '0')}:00`,
             location: item.local || "Online (Even3 Live)",
             type: item.tipo || "Workshop",
-            image: item.image || (item.tipo === "Presencial" 
+            image: item.imagem_path || item.image || (item.tipo === "Presencial" 
               ? "https://images.unsplash.com/photo-1511795409834-ef04bbd61622?auto=format&fit=crop&q=80&w=800"
               : "https://images.unsplash.com/photo-1540575861501-7ad060e39fe1?auto=format&fit=crop&q=80&w=800"),
             description: item.descricao || "Capacitação e encontro da rede Animativa.",
