@@ -2,12 +2,17 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session, AuthError } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 
+export type UserRole = 'VOLUNTARIO' | 'ADMIN' | 'COORDENADOR';
+export type UserStatus = 'ATIVO' | 'INATIVO' | 'PENDENTE';
+
 export interface UserProfile {
   id: number;
   auth_user_id: string;
   nome: string;
   email: string;
   foto_perfil?: string | null;
+  role?: UserRole | string;
+  status?: UserStatus | string;
   created_at?: string;
   updated_at?: string;
 }
@@ -16,6 +21,7 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   profile: UserProfile | null;
+  isAdmin: boolean;
   loading: boolean;
   isConfigured: boolean;
   signUp: (email: string, password: string, nome: string) => Promise<{ data: any; error: AuthError | null }>;
@@ -50,6 +56,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           nome: authUser.user_metadata?.nome || authUser.email?.split('@')[0] || 'Usuário',
           email: authUser.email || '',
           foto_perfil: authUser.user_metadata?.avatar_url || null,
+          role: 'VOLUNTARIO',
+          status: 'ATIVO',
         });
         return;
       }
@@ -74,6 +82,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           nome: authUser.user_metadata?.nome || authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || 'Usuário',
           email: authUser.email || '',
           foto_perfil: authUser.user_metadata?.avatar_url || null,
+          role: 'VOLUNTARIO',
+          status: 'ATIVO',
         };
         setProfile(fallbackProfile);
 
@@ -86,6 +96,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               nome: fallbackProfile.nome,
               email: fallbackProfile.email,
               foto_perfil: fallbackProfile.foto_perfil,
+              role: fallbackProfile.role,
+              status: fallbackProfile.status,
             })
             .select()
             .single();
@@ -194,12 +206,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return { error };
   };
 
+  const isAdmin = profile?.role === 'ADMIN';
+
   return (
     <AuthContext.Provider
       value={{
         user,
         session,
         profile,
+        isAdmin,
         loading,
         isConfigured,
         signUp,

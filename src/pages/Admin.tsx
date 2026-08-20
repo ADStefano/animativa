@@ -87,25 +87,25 @@ const TextArea = (props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) => (
 );
 
 export default function Admin() {
-  const { user: supabaseUser, profile } = useAuth();
-  const localUser = getAuthUser();
-  const isLogged = !!supabaseUser || (localUser && localUser.isLoggedIn);
+  const { user: supabaseUser, profile, isAdmin } = useAuth();
 
   const user = {
-    name: profile?.nome || supabaseUser?.user_metadata?.nome || localUser?.name || supabaseUser?.email?.split('@')[0] || "Administrador",
-    avatar: profile?.foto_perfil || supabaseUser?.user_metadata?.avatar_url || localUser?.avatar || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=150",
-    email: supabaseUser?.email || localUser?.email || "admin@animativa.org.br",
-    role: "Administrador"
+    name: profile?.nome || supabaseUser?.user_metadata?.nome || supabaseUser?.email?.split('@')[0] || "Administrador",
+    avatar: profile?.foto_perfil || supabaseUser?.user_metadata?.avatar_url || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=150",
+    email: supabaseUser?.email || "admin@animativa.org.br",
+    role: profile?.role === 'ADMIN' ? "Administrador Geral" : (profile?.role || "Usuário")
   };
 
-  if (!isLogged) {
+  if (!supabaseUser || !isAdmin) {
     return (
       <div className="min-h-screen bg-[#0A0A0A] text-white flex flex-col items-center justify-center p-6 text-center">
         <div className="w-16 h-16 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center mb-6">
           <XCircle className="w-8 h-8 text-red-400" />
         </div>
-        <h2 className="text-2xl font-black uppercase tracking-tighter mb-2">Acesso Negado</h2>
-        <p className="text-sm text-white/50 max-w-sm mb-8">O Painel de Manutenção está disponível apenas para administradores logados.</p>
+        <h2 className="text-2xl font-black uppercase tracking-tighter mb-2">Acesso Restrito</h2>
+        <p className="text-sm text-white/50 max-w-sm mb-8">
+          O Painel de Manutenção está disponível exclusivamente para contas com perfil de Administrador (ADMIN) no banco de dados.
+        </p>
         <div className="flex flex-col sm:flex-row gap-4">
           <Link 
             to="/" 
@@ -114,10 +114,10 @@ export default function Admin() {
             Voltar ao Início
           </Link>
           <Link 
-            to="/cadastro?mode=login" 
+            to="/perfil" 
             className="px-8 py-4 bg-brand-orange text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-white hover:text-brand-purple transition-all"
           >
-            Fazer Login
+            Ver Meu Perfil
           </Link>
         </div>
       </div>

@@ -20,16 +20,18 @@ import {
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { supabase } from "../lib/supabase";
+import { ShieldCheck } from "lucide-react";
 
 export default function Perfil() {
   const navigate = useNavigate();
-  const { user, profile, signOut, refreshProfile } = useAuth();
+  const { user, profile, isAdmin, signOut, refreshProfile } = useAuth();
   
   // Form states
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [volunteerStatus, setVolunteerStatus] = useState<string | null>(null);
   const [isVolunteer, setIsVolunteer] = useState<boolean | null>(null);
   const [userInitiatives, setUserInitiatives] = useState<any[]>([]);
 
@@ -51,16 +53,22 @@ export default function Perfil() {
       // 1. Checa voluntário
       const { data: volData } = await supabase
         .from('voluntario')
-        .select('id, nome, data_cadastro, habilidades')
+        .select('id, nome, data_cadastro, habilidades, status_aprovacao_voluntario, status_voluntario')
         .eq('email', user.email)
         .maybeSingle();
 
-      setIsVolunteer(!!volData);
+      if (volData) {
+        setIsVolunteer(true);
+        setVolunteerStatus(volData.status_voluntario || volData.status_aprovacao_voluntario || 'PENDENTE');
+      } else {
+        setIsVolunteer(false);
+        setVolunteerStatus(null);
+      }
 
       // 2. Checa iniciativas cadastradas
       const { data: iniData } = await supabase
         .from('iniciativa')
-        .select('id, nome, setor_sociedade, cidade, uf')
+        .select('id, nome, setor_sociedade, cidade, uf, autorizada')
         .eq('email', user.email);
 
       setUserInitiatives(iniData || []);
@@ -187,8 +195,8 @@ export default function Perfil() {
           {/* Column Left (Profile Card & Login Info Form) */}
           <div className="lg:col-span-5 space-y-8">
             {/* Quick Profile Stat Card */}
-            <div className="bg-white/5 border border-white/10 p-8 rounded-[3rem] relative overflow-hidden flex items-center gap-6">
-              <div className="relative">
+            <div className="bg-white/5 border border-white/10 p-8 rounded-[3rem] relative overflow-hidden flex flex-col sm:flex-row items-center gap-6">
+              <div className="relative shrink-0">
                 <img 
                   src={avatarUrl} 
                   alt={displayName} 
@@ -199,12 +207,51 @@ export default function Perfil() {
                   <Check className="w-3 h-3 text-white" />
                 </div>
               </div>
-              <div>
-                <span className="text-[10px] font-black uppercase tracking-widest text-brand-orange">Conta Supabase Autenticada</span>
+              <div className="text-center sm:text-left">
+                <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-brand-orange">
+                    Conta Supabase
+                  </span>
+                  {profile?.role === 'ADMIN' ? (
+                    <span className="px-2.5 py-0.5 bg-brand-orange/20 border border-brand-orange/40 text-brand-orange text-[9px] font-black uppercase tracking-widest rounded-full flex items-center gap-1">
+                      <ShieldCheck className="w-3 h-3" />
+                      Admin
+                    </span>
+                  ) : profile?.role === 'COORDENADOR' ? (
+                    <span className="px-2.5 py-0.5 bg-brand-blue/20 border border-brand-blue/40 text-brand-blue text-[9px] font-black uppercase tracking-widest rounded-full">
+                      Coordenador
+                    </span>
+                  ) : (
+                    <span className="px-2.5 py-0.5 bg-white/10 border border-white/20 text-white/70 text-[9px] font-black uppercase tracking-widest rounded-full">
+                      Voluntário
+                    </span>
+                  )}
+                </div>
                 <h3 className="text-2xl font-black uppercase tracking-tighter text-white mt-1">{displayName}</h3>
                 <p className="text-xs text-white/50">{user?.email}</p>
               </div>
             </div>
+
+            {/* Admin Quick Access Banner if user is Admin */}
+            {isAdmin && (
+              <div className="bg-gradient-to-r from-brand-orange/20 via-brand-purple/40 to-brand-orange/10 border border-brand-orange/40 p-6 rounded-[2.5rem] flex flex-col sm:flex-row items-center justify-between gap-4 shadow-xl">
+                <div className="flex items-center gap-4 text-left">
+                  <div className="w-12 h-12 rounded-2xl bg-brand-orange text-white flex items-center justify-center shadow-lg shrink-0">
+                    <ShieldCheck className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-black uppercase tracking-wider text-white">Privilégios de Administrador</h4>
+                    <p className="text-[11px] text-white/60">Acesse o painel de aprovação e gerenciamento.</p>
+                  </div>
+                </div>
+                <Link
+                  to="/admin"
+                  className="w-full sm:w-auto px-6 py-3 bg-brand-orange hover:bg-white hover:text-brand-purple text-white text-[10px] font-black uppercase tracking-widest rounded-2xl transition-all shadow-lg text-center shrink-0"
+                >
+                  Abrir Painel Admin &rarr;
+                </Link>
+              </div>
+            )}
 
             {/* Edit Profile Form */}
             <div className="bg-white/5 border border-white/10 p-8 md:p-10 rounded-[3rem]">
@@ -277,9 +324,19 @@ export default function Perfil() {
                   Cadastro de Voluntário
                 </h2>
                 {isVolunteer ? (
-                  <span className="px-3 py-1 bg-green-500/10 border border-green-500/20 text-green-400 text-[10px] font-black uppercase tracking-widest rounded-full">
-                    Voluntário Ativo
-                  </span>
+                  volunteerStatus === 'APROVADO' ? (
+                    <span className="px-3 py-1 bg-green-500/10 border border-green-500/20 text-green-400 text-[10px] font-black uppercase tracking-widest rounded-full">
+                      Aprovado
+                    </span>
+                  ) : volunteerStatus === 'REPROVADO' ? (
+                    <span className="px-3 py-1 bg-red-500/10 border border-red-500/20 text-red-400 text-[10px] font-black uppercase tracking-widest rounded-full">
+                      Reprovado
+                    </span>
+                  ) : (
+                    <span className="px-3 py-1 bg-yellow-500/10 border border-yellow-500/20 text-yellow-400 text-[10px] font-black uppercase tracking-widest rounded-full">
+                      Aguardando Aprovação
+                    </span>
+                  )
                 ) : (
                   <span className="px-3 py-1 bg-white/5 border border-white/10 text-white/40 text-[10px] font-black uppercase tracking-widest rounded-full">
                     Não Cadastrado
@@ -289,7 +346,11 @@ export default function Perfil() {
               
               <p className="text-xs text-white/60 mb-6 leading-relaxed">
                 {isVolunteer 
-                  ? "Você já possui cadastro como voluntário na tabela de voluntários da Animativa."
+                  ? volunteerStatus === 'APROVADO'
+                    ? "Seu cadastro de voluntário está aprovado! Você está apto para participar de todas as ações e projetos."
+                    : volunteerStatus === 'REPROVADO'
+                    ? "Seu cadastro de voluntário não foi aprovado pela coordenação. Você pode atualizar seus dados para uma nova análise."
+                    : "Seu cadastro de voluntário foi recebido e está em análise pela equipe da Animativa."
                   : "Criar uma conta na plataforma não o torna automaticamente um voluntário. Se deseja atuar nos projetos e causas sociais, complete seu cadastro de voluntário."}
               </p>
 

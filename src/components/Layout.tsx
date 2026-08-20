@@ -58,7 +58,7 @@ export const LogoSmall = () => {
 export default function Layout({ children }: { children: React.ReactNode }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const location = useLocation();
-  const { user, profile } = useAuth();
+  const { user, profile, isAdmin } = useAuth();
 
   const displayName = profile?.nome || user?.user_metadata?.nome || user?.email?.split('@')[0] || 'Usuário';
   const avatarUrl = profile?.foto_perfil || user?.user_metadata?.avatar_url || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=150";
@@ -270,14 +270,14 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               </Link>
               <p className="text-xs font-black uppercase tracking-[0.4em] text-white/30">Conexões Vivas</p>
               
-              {/* Painel de Manutenção link - shown only to logged-in users */}
-              {user && (
+              {/* Painel de Manutenção link - shown only to ADMIN users */}
+              {user && isAdmin && (
                 <Link 
                   to="/admin" 
-                  className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-white/20 hover:text-brand-orange transition-colors mt-4 bg-white/5 border border-white/15 px-4 py-2 rounded-xl"
+                  className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-brand-orange hover:text-white transition-colors mt-4 bg-brand-orange/10 border border-brand-orange/30 px-4 py-2 rounded-xl"
                 >
                   <Settings className="w-3.5 h-3.5" />
-                  Painel de Manutenção
+                  Painel de Manutenção (Admin)
                 </Link>
               )}
             </div>

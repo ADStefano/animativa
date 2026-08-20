@@ -6,6 +6,7 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
+import { AdminRoute } from "./components/AdminRoute";
 import Layout from "./components/Layout";
 import Home from "./pages/Home";
 import Iniciativas from "./pages/Iniciativas";
@@ -43,7 +44,14 @@ export default function App() {
               </ProtectedRoute>
             }
           />
-          <Route path="/admin" element={<Admin />} />
+          <Route
+            path="/admin"
+            element={
+              <AdminRoute>
+                <Admin />
+              </AdminRoute>
+            }
+          />
         </Routes>
       </Router>
     </AuthProvider>
