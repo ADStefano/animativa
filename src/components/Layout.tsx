@@ -18,6 +18,8 @@ import {
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 
+import ParceirosBanner from "./ParceirosBanner";
+
 export const LogoSmall = () => {
   const [imgError, setImgError] = useState(false);
 
@@ -225,40 +227,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         {children}
       </main>
 
-      {/* Sponsors & Partners Section (White Band fixed above Footer in Layout) */}
-      <section className="bg-white py-12 border-t border-gray-100 relative z-20 overflow-hidden">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <p className="text-center text-[10px] font-black uppercase tracking-[0.4em] text-brand-purple/40 mb-8">
-            Parceiros & Apoiadores Coletivos
-          </p>
-          <div className="flex flex-wrap items-center justify-center gap-12 md:gap-20 opacity-60 hover:opacity-85 transition-opacity duration-300">
-            {/* Sponsor 1: SocioImpacto */}
-            <div className="flex items-center gap-2 select-none">
-              <Users className="w-5 h-5 text-brand-purple" />
-              <span className="font-black text-brand-purple tracking-tighter text-lg md:text-xl">Socio<span className="text-brand-orange">Impacto</span></span>
-            </div>
-            {/* Sponsor 2: Instituto Regenera */}
-            <div className="flex items-center gap-2 select-none">
-              <Globe className="w-5 h-5 text-brand-purple" />
-              <span className="font-bold text-brand-purple tracking-widest text-xs md:text-sm">INSTITUTO REGENERA</span>
-            </div>
-            {/* Sponsor 3: Coletivo Vivo */}
-            <div className="flex items-center gap-1 select-none">
-              <span className="font-black text-brand-purple lowercase text-lg md:text-xl">coletı<span className="text-brand-blue font-black">vo</span>vıvo</span>
-            </div>
-            {/* Sponsor 4: Rede Ativa */}
-            <div className="flex items-center gap-2 select-none">
-              <Shield className="w-5 h-5 text-brand-purple" />
-              <span className="font-extrabold text-brand-purple uppercase tracking-tight text-sm md:text-base">Rede<span className="font-light text-brand-orange">Ativa</span></span>
-            </div>
-            {/* Sponsor 5: MudaMundo */}
-            <div className="flex items-center gap-2 select-none">
-              <Heart className="w-5 h-5 text-brand-orange" />
-              <span className="font-black text-brand-purple uppercase tracking-tighter text-base md:text-lg">Muda<span className="text-brand-blue font-medium lowercase">mundo</span></span>
-            </div>
-          </div>
-        </div>
-      </section>
+      {/* Sponsors & Partners Section (Dynamic from Supabase / Layout) */}
+      <ParceirosBanner />
 
       {/* Footer */}
       <footer className="py-20 border-t border-white/5 bg-brand-purple">

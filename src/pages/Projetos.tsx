@@ -38,10 +38,11 @@ export default function Projetos() {
       const { data, error } = await supabase
         .from("iniciativa")
         .select("*")
+        .eq("autorizada", true)
         .order("created_at", { ascending: false });
 
       if (data && data.length > 0 && !error) {
-        // Formata os registros do banco
+        // Formata os registros autorizados do banco
         const formatted = data.map((item) => ({
           id: item.id,
           title: item.nome,

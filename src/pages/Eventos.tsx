@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { 
   Zap, 
@@ -15,10 +15,12 @@ import {
   CalendarPlus,
   Users,
   Award,
-  BookOpen
+  BookOpen,
+  Loader2
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { Link } from "react-router-dom";
+import { supabase } from "../lib/supabase";
 
 interface EventItem {
   id: number;
@@ -27,7 +29,7 @@ interface EventItem {
   fullDate: string;
   time: string;
   location: string;
-  type: "Workshop" | "Presencial" | "Webinar" | "Hackathon";
+  type: "Workshop" | "Presencial" | "Webinar" | "Hackathon" | string;
   image: string;
   description: string;
   even3Url: string;
@@ -120,11 +122,73 @@ export default function Eventos() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedEvent, setSelectedEvent] = useState<EventItem | null>(null);
   const [registeredEvents, setRegisteredEvents] = useState<number[]>([]);
+  const [eventsList, setEventsList] = useState<EventItem[]>(EVENTS);
+  const [loading, setLoading] = useState(true);
 
-  const types = ["TODOS", "Workshop", "Presencial", "Webinar", "Hackathon"];
+  useEffect(() => {
+    fetchEvents();
+  }, []);
+
+  const fetchEvents = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("evento")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (data && data.length > 0 && !error) {
+        const formatted: EventItem[] = data.map((item) => {
+          const dateObj = item.data_inicio ? new Date(item.data_inicio) : new Date();
+          const day = dateObj.getDate();
+          const month = dateObj.toLocaleDateString("pt-BR", { month: "short" });
+          const fullDate = dateObj.toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" });
+          const time = dateObj.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+
+          return {
+            id: item.id,
+            title: item.titulo || item.title || "Evento Animativa",
+            date: `${day} ${month}`,
+            fullDate: fullDate,
+            time: `${time} - ${(Number(time.split(":")[0] || 19) + 2).toString().padStart(2, '0')}:00`,
+            location: item.local || "Online (Even3 Live)",
+            type: item.tipo || "Workshop",
+            image: item.image || (item.tipo === "Presencial" 
+              ? "https://images.unsplash.com/photo-1511795409834-ef04bbd61622?auto=format&fit=crop&q=80&w=800"
+              : "https://images.unsplash.com/photo-1540575861501-7ad060e39fe1?auto=format&fit=crop&q=80&w=800"),
+            description: item.descricao || "Capacitação e encontro da rede Animativa.",
+            even3Url: item.link_even3 || `https://www.even3.com.br/evento-${item.id}`,
+            speakers: item.palestrantes || "Equipe e Parceiros Animativa",
+            spotsLeft: item.vagas || 40,
+            certificateHours: item.horas_certificado || 4
+          };
+        });
+
+        // Merge DB events first, then defaults if unique
+        const dbTitles = new Set(formatted.map(f => f.title.toLowerCase()));
+        const remainingDefaults = EVENTS.filter(e => !dbTitles.has(e.title.toLowerCase()));
+        setEventsList([...formatted, ...remainingDefaults]);
+      } else {
+        setEventsList(EVENTS);
+      }
+    } catch (err) {
+      console.warn("Erro ao buscar eventos do Supabase:", err);
+      setEventsList(EVENTS);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const types = useMemo(() => {
+    const setTypes = new Set<string>();
+    eventsList.forEach(e => {
+      if (e.type) setTypes.add(e.type);
+    });
+    return ["TODOS", ...Array.from(setTypes)];
+  }, [eventsList]);
 
   const filteredEvents = useMemo(() => {
-    return EVENTS.filter((e) => {
+    return eventsList.filter((e) => {
       const matchesSearch = 
         e.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
         e.location.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -134,7 +198,7 @@ export default function Eventos() {
 
       return matchesSearch && matchesType;
     });
-  }, [searchTerm, selectedType]);
+  }, [eventsList, searchTerm, selectedType]);
 
   const handleRegisterEven3 = (event: EventItem) => {
     // Abre a página oficial Even3 do evento
