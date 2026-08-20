@@ -27,6 +27,7 @@ export default function Voluntarios() {
   const [loading, setLoading] = useState(false);
   const [fetchingExisting, setFetchingExisting] = useState(false);
   const [isAlreadyVolunteer, setIsAlreadyVolunteer] = useState(false);
+  const [volunteerStatus, setVolunteerStatus] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
 
@@ -71,6 +72,7 @@ export default function Voluntarios() {
 
       if (data && !error) {
         setIsAlreadyVolunteer(true);
+        setVolunteerStatus(data.status_voluntario || data.status_aprovacao_voluntario || 'PENDENTE');
         setFormData({
           nome: data.nome || "",
           email: data.email || user.email,
@@ -164,6 +166,8 @@ export default function Voluntarios() {
         soube_iniciativa: formData.soube_iniciativa.trim() || null,
         consentimento: formData.consentimento,
         disponibilidade_variavel: formData.disponibilidade_variavel,
+        status_voluntario: volunteerStatus || 'PENDENTE',
+        status_aprovacao_voluntario: volunteerStatus || 'PENDENTE',
         updated_at: new Date().toISOString(),
       };
 
@@ -183,7 +187,12 @@ export default function Voluntarios() {
       }
 
       setIsAlreadyVolunteer(true);
-      setSuccessMessage("Voluntário cadastrado com sucesso!");
+      setVolunteerStatus(data.status_voluntario || 'PENDENTE');
+      setSuccessMessage(
+        data.status_voluntario === 'APROVADO'
+          ? "Cadastro de voluntário atualizado com sucesso!"
+          : "Cadastro enviado com sucesso! Seus dados estão em análise pela coordenação da Animativa."
+      );
     } catch (err: any) {
       console.error("Erro ao salvar cadastro de voluntário:", err);
       setErrorMessage(
@@ -296,11 +305,32 @@ export default function Voluntarios() {
               </div>
 
               {isAlreadyVolunteer && (
-                <div className="p-5 bg-green-500/10 border border-green-500/20 rounded-2xl flex items-center gap-3">
-                  <Check className="w-5 h-5 text-green-400 shrink-0" />
-                  <p className="text-xs text-green-300 font-bold">
-                    Você já é um voluntário cadastrado! Seus dados abaixo podem ser atualizados a qualquer momento.
-                  </p>
+                <div className={`p-5 rounded-2xl flex items-center gap-3 border ${
+                  volunteerStatus === 'APROVADO'
+                    ? 'bg-green-500/10 border-green-500/20 text-green-300'
+                    : volunteerStatus === 'REPROVADO'
+                    ? 'bg-red-500/10 border-red-500/20 text-red-300'
+                    : 'bg-yellow-500/10 border-yellow-500/20 text-yellow-300'
+                }`}>
+                  {volunteerStatus === 'APROVADO' ? (
+                    <Check className="w-5 h-5 text-green-400 shrink-0" />
+                  ) : volunteerStatus === 'REPROVADO' ? (
+                    <AlertCircle className="w-5 h-5 text-red-400 shrink-0" />
+                  ) : (
+                    <Clock className="w-5 h-5 text-yellow-400 shrink-0" />
+                  )}
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-widest opacity-75">
+                      Status: {volunteerStatus === 'APROVADO' ? 'Aprovado' : volunteerStatus === 'REPROVADO' ? 'Reprovado' : 'Em Análise (Pendente)'}
+                    </p>
+                    <p className="text-xs font-bold mt-0.5">
+                      {volunteerStatus === 'APROVADO'
+                        ? 'Você é um voluntário aprovado! Seus dados podem ser atualizados a qualquer momento.'
+                        : volunteerStatus === 'REPROVADO'
+                        ? 'Seu cadastro não foi aprovado. Você pode atualizar seus dados e habilidades para reavaliação.'
+                        : 'Seu cadastro foi recebido e aguarda aprovação da coordenação.'}
+                    </p>
+                  </div>
                 </div>
               )}
             </div>

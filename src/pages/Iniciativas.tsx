@@ -76,6 +76,7 @@ export default function Iniciativas() {
       const { data, error } = await supabase
         .from("iniciativa")
         .select("*")
+        .eq("autorizada", true)
         .order("created_at", { ascending: false });
 
       if (data && data.length > 0 && !error) {
@@ -169,7 +170,7 @@ export default function Iniciativas() {
         proposito_iniciativa: formData.proposito_iniciativa.trim() || null,
         impacto_iniciativa: formData.impacto_iniciativa.trim() || null,
         habilidades_exigidas: formData.habilidades_exigidas.trim() || null,
-        autorizada: true,
+        autorizada: false,
         data_cadastro: new Date().toISOString().split("T")[0],
       };
 
@@ -190,7 +191,7 @@ export default function Iniciativas() {
         throw error;
       }
 
-      setSuccessMessage("Iniciativa cadastrada com sucesso!");
+      setSuccessMessage("Iniciativa enviada com sucesso! Ela foi recebida e está aguardando aprovação da coordenação da Animativa para ser publicada.");
       
       // Limpa campos
       setFormData((prev) => ({
