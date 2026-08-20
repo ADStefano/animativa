@@ -265,7 +265,7 @@ export default function Admin() {
   }, [iniciativas]);
 
   const pendingVoluntarios = useMemo(() => {
-    return voluntarios.filter(v => v.status_voluntario === "PENDENTE" || v.status_aprovacao_voluntario === "PENDENTE");
+    return voluntarios.filter(v => v.status_voluntario === "PENDENTE");
   }, [voluntarios]);
 
   const pendingUsuarios = useMemo(() => {
@@ -336,15 +336,14 @@ export default function Admin() {
       const { error } = await supabase
         .from("voluntario")
         .update({ 
-          status_voluntario: "APROVADO", 
-          status_aprovacao_voluntario: "APROVADO",
+          status_voluntario: "APROVADO",
           updated_at: new Date().toISOString() 
         })
         .eq("id", id);
 
       if (error) throw error;
 
-      setVoluntarios(prev => prev.map(v => v.id === id ? { ...v, status_voluntario: "APROVADO", status_aprovacao_voluntario: "APROVADO" } : v));
+      setVoluntarios(prev => prev.map(v => v.id === id ? { ...v, status_voluntario: "APROVADO"} : v));
       addToast("success", `Voluntário "${name || id}" aprovado com sucesso!`);
     } catch (err: any) {
       console.error("Erro ao aprovar voluntário:", err);
@@ -358,15 +357,14 @@ export default function Admin() {
       const { error } = await supabase
         .from("voluntario")
         .update({ 
-          status_voluntario: "REPROVADO", 
-          status_aprovacao_voluntario: "REPROVADO",
+          status_voluntario: "REPROVADO",
           updated_at: new Date().toISOString() 
         })
         .eq("id", id);
 
       if (error) throw error;
 
-      setVoluntarios(prev => prev.map(v => v.id === id ? { ...v, status_voluntario: "REPROVADO", status_aprovacao_voluntario: "REPROVADO" } : v));
+      setVoluntarios(prev => prev.map(v => v.id === id ? { ...v, status_voluntario: "REPROVADO"} : v));
       addToast("info", `Voluntário "${name || id}" marcado como reprovado.`);
     } catch (err: any) {
       console.error("Erro ao reprovar voluntário:", err);
@@ -495,7 +493,6 @@ export default function Admin() {
           habilidades: Array.isArray(data.habilidades) ? data.habilidades.join(", ") : data.habilidades,
           disponibilidade_variavel: data.disponibilidade_variavel || data.availability || "TODA_SEMANA",
           status_voluntario: data.status_voluntario || (data.status === "Ativo" ? "APROVADO" : data.status === "Reprovado" ? "REPROVADO" : "PENDENTE"),
-          status_aprovacao_voluntario: data.status_aprovacao_voluntario || (data.status === "Ativo" ? "APROVADO" : data.status === "Reprovado" ? "REPROVADO" : "PENDENTE"),
           updated_at: new Date().toISOString(),
         };
 
@@ -1830,7 +1827,7 @@ export default function Admin() {
                       <Select 
                         defaultValue={editingItem.data.status_voluntario || "PENDENTE"}
                         onChange={(e) => {
-                          const newData = { ...editingItem.data, status_voluntario: e.target.value, status_aprovacao_voluntario: e.target.value };
+                          const newData = { ...editingItem.data, status_voluntario: e.target.value};
                           setEditingItem({ ...editingItem, data: newData });
                         }}
                       >

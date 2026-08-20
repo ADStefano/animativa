@@ -53,13 +53,13 @@ export default function Perfil() {
       // 1. Checa voluntário
       const { data: volData } = await supabase
         .from('voluntario')
-        .select('id, nome, data_cadastro, habilidades, status_aprovacao_voluntario, status_voluntario')
+        .select('id, nome, data_cadastro, habilidades, status_voluntario')
         .eq('email', user.email)
         .maybeSingle();
 
       if (volData) {
         setIsVolunteer(true);
-        setVolunteerStatus(volData.status_voluntario || volData.status_aprovacao_voluntario || 'PENDENTE');
+        setVolunteerStatus(volData.status_voluntario || 'PENDENTE');
       } else {
         setIsVolunteer(false);
         setVolunteerStatus(null);

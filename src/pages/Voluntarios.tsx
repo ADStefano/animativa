@@ -72,7 +72,7 @@ export default function Voluntarios() {
 
       if (data && !error) {
         setIsAlreadyVolunteer(true);
-        setVolunteerStatus(data.status_voluntario || data.status_aprovacao_voluntario || 'PENDENTE');
+        setVolunteerStatus(data.status_voluntario || 'PENDENTE');
         setFormData({
           nome: data.nome || "",
           email: data.email || user.email,
@@ -167,7 +167,6 @@ export default function Voluntarios() {
         consentimento: formData.consentimento,
         disponibilidade_variavel: formData.disponibilidade_variavel,
         status_voluntario: volunteerStatus || 'PENDENTE',
-        status_aprovacao_voluntario: volunteerStatus || 'PENDENTE',
         updated_at: new Date().toISOString(),
       };
 

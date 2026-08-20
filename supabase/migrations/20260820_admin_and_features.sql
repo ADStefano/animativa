@@ -36,7 +36,6 @@ ALTER TABLE IF EXISTS "usuario"
 -- 3. AJUSTES NA TABELA VOLUNTARIO
 ALTER TABLE IF EXISTS "voluntario"
     ADD COLUMN IF NOT EXISTS "status_voluntario" status_voluntario NOT NULL DEFAULT 'PENDENTE',
-    ADD COLUMN IF NOT EXISTS "status_aprovacao_voluntario" status_voluntario NOT NULL DEFAULT 'PENDENTE';
 
 -- 4. AJUSTES NA TABELA INICIATIVA
 ALTER TABLE IF EXISTS "iniciativa"
